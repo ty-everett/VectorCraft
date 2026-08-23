@@ -1,0 +1,10 @@
+node_modules/
+frontend/node_modules/
+frontend/build/
+frontend/coverage/
+cars_artifact_*.tgz
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example

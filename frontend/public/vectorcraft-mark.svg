@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="VectorCraft mark">
+  <defs>
+    <linearGradient id="g" x1="12" y1="10" x2="86" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7cf7d4"/>
+      <stop offset=".52" stop-color="#8ca8ff"/>
+      <stop offset="1" stop-color="#d58cff"/>
+    </linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="23" fill="#0b1020"/>
+  <path d="M18 24 48 12l30 12v35L48 84 18 59V24Z" fill="none" stroke="url(#g)" stroke-width="6" stroke-linejoin="round"/>
+  <path d="m20 25 28 18 29-18M48 43v40" fill="none" stroke="url(#g)" stroke-width="5" stroke-linejoin="round"/>
+  <circle cx="48" cy="43" r="7" fill="#f8fbff"/>
+</svg>

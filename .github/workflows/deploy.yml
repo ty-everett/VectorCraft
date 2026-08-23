@@ -1,0 +1,104 @@
+name: Verify and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: vectorcraft-cars-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CARS_REQUEST_TIMEOUT_MS: "300000"
+      VITE_RELEASE_SHA: ${{ github.sha }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
+      - name: Install deployment dependencies
+        run: npm ci
+
+      - name: Install application dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Verify application
+        run: npm run verify
+
+      - name: Build CARS artifact
+        run: npx cars build Babbage
+
+      - name: Check CARS transport and project balance
+        env:
+          CARS_PRIVATE_KEY: ${{ secrets.CARS_PRIVATE_KEY }}
+          CARS_WALLET_STORAGE: ${{ secrets.CARS_WALLET_STORAGE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CARS_PRIVATE_KEY:-}" ]; then
+            echo "CARS_PRIVATE_KEY repository secret is required." >&2
+            exit 1
+          fi
+          storage_args=()
+          if [ -n "${CARS_WALLET_STORAGE:-}" ]; then
+            storage_args=(--storage "$CARS_WALLET_STORAGE")
+          fi
+          npx cars doctor Babbage \
+            --key "$CARS_PRIVATE_KEY" \
+            --network mainnet \
+            "${storage_args[@]}"
+          npx cars project ensure-balance Babbage \
+            --key "$CARS_PRIVATE_KEY" \
+            --network mainnet \
+            "${storage_args[@]}" \
+            --min 1 \
+            --topup-to 250000
+
+      - name: Release CARS artifact
+        env:
+          CARS_PRIVATE_KEY: ${{ secrets.CARS_PRIVATE_KEY }}
+          CARS_WALLET_STORAGE: ${{ secrets.CARS_WALLET_STORAGE }}
+        run: |
+          set -euo pipefail
+          storage_args=()
+          if [ -n "${CARS_WALLET_STORAGE:-}" ]; then
+            storage_args=(--storage "$CARS_WALLET_STORAGE")
+          fi
+          for attempt in 1 2 3; do
+            log_file="cars-release-attempt-${attempt}.log"
+            set +e
+            npx cars release now Babbage \
+              --key "$CARS_PRIVATE_KEY" \
+              --network mainnet \
+              "${storage_args[@]}" 2>&1 | tee "$log_file"
+            status=${PIPESTATUS[0]}
+            set -e
+            if [ "$status" -eq 0 ] && grep -q "CARS_RELEASE_SUCCESS" "$log_file"; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              if [ "$status" -eq 0 ]; then
+                echo "CARS release did not emit CARS_RELEASE_SUCCESS." >&2
+                exit 1
+              fi
+              exit "$status"
+            fi
+            sleep "$((attempt * 20))"
+          done

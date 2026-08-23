@@ -1,0 +1,17 @@
+{
+  "name": "VectorCraft",
+  "short_name": "VectorCraft",
+  "description": "A private, browser-native local-AI crafting game.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080b13",
+  "theme_color": "#080b13",
+  "icons": [
+    {
+      "src": "/vectorcraft-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

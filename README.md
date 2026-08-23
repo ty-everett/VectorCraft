@@ -1,39 +1,36 @@
-# Open Alchemy 🧪
-This is an open-source project inspired by the game _Infinite Craft_.\
-It is programmed in Python and uses the [NiceGUI](https://nicegui.io/) Python Library for the UI.
-   * It uses Google's Gemini instead of Llama 2 like _Infinite Craft_
+# VectorCraft
 
-## Getting Started
-In order to play, you need a Gemini API key. You can get one from [Google AI Studio](https://aistudio.google.com/).\
-Once you have an API key, you can either set it as an enviroment variable on your local machine, or you can go into the `recipe.py` file and add your api key where it says `client = genai.Client()`
-  * Ex: `client = genai.Client(api_key= 'GEMINI_API_KEY')`
-<br />
-Now you can run and play!
+VectorCraft is a private-by-design crafting game where every novel combination is invented by an open-weights language model running locally in the player's browser. There is no inference API, application server, account, or telemetry pipeline.
 
-## Game Customization
-Right now, the system prompt (found in the `recipe.py` file) is as follows:
+Production: [vectorcraft.metanet.app](https://vectorcraft.metanet.app)
+
+Source: [github.com/ty-everett/VectorCraft](https://github.com/ty-everett/VectorCraft)
+
+## Local AI stack
+
+- **Crafting:** `HuggingFaceTB/SmolLM2-360M-Instruct`, using the Apache-2.0 Transformers.js-compatible ONNX build. WebGPU uses the compact `q4f16` artifact; browsers without WebGPU fall back to quantized WASM execution.
+- **Semantic inventory search:** `Xenova/all-MiniLM-L6-v2`, a 384-dimensional Apache-2.0 sentence-embedding model running through Transformers.js.
+- **Storage:** recipes and discoveries stay in `localStorage`; Transformers.js stores downloaded model artifacts in the browser cache.
+
+The model files are fetched from Hugging Face only when needed. Inference and semantic search happen on-device. The initial model download is approximately 272 MB on WebGPU and 386 MB on the WASM fallback; the embedding model is approximately 23 MB.
+
+## Develop
+
+```bash
+npm ci
+npm --prefix frontend ci
+npm run verify
+npm run dev
 ```
-'''Create a new material based on two given materials output your answer like:    
-                {
-                    "material_list" : ["FIRE", "EARTH"],
-                    "output" : {
-                        "name" : "VOLCANO,
-                        "emoji" "🌋"
-                    }
-                },
-                
-                but make sure it has no extra words, only the curly braces and the contents, DO NOT WRITE IT LIKE:
-                ```json
-                {
-                    "material_list" : ["FIRE", "EARTH"],
-                    "output" : {
-                        "name" : "VOLCANO,
-                        "emoji" : "🌋"
-                    }
-                }
-                ```, make sure that the materials created are common items, things, people, foods, places, buildings'''
-```
-You can edit this if you like!
 
-## Showcase
-[![SHOWCASE_VIDEO](https://img.youtube.com/vi/1nIRfCMAF9U/0.jpg)](https://www.youtube.com/watch?v=1nIRfCMAF9U)
+The Vite development server listens on `http://localhost:4173`.
+
+## Deployment
+
+VectorCraft is a frontend-only BRC-102 application deployed through Babbage CARS. Pushes to `main` run verification, construct a CARS artifact, preflight the dedicated deploy identity, ensure project balance, and publish the release. The only repository secret is the scoped `CARS_PRIVATE_KEY` deploy identity.
+
+## Attribution and licensing
+
+This repository is a fork of [BloodyFish/OpenAlchemy](https://github.com/BloodyFish/OpenAlchemy) and preserves the upstream history. VectorCraft replaces the former Python/NiceGUI and Gemini implementation with a new static React/TypeScript application.
+
+The new VectorCraft implementation is MIT licensed. OpenAlchemy did not declare a license when it was forked, so its historical commits are not relicensed. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for details.
