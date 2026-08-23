@@ -96,7 +96,7 @@ function firstEmoji(value: string): string | null {
 }
 
 export function parseGeneratedMaterial(raw: string): GeneratedMaterial | null {
-  const boilerplate = /\b(?:the following|short description|relevant information|input and output|output format|name and emoji|as an ai)\b/i
+  const boilerplate = /\b(?:the following|this is|great example|short description|relevant information|input and output|output format|the output|name and emoji|combining different|innovative ideas|as an ai)\b/i
   const objectMatch = raw.match(/\{[\s\S]*\}/)
   let candidate: Record<string, unknown> | null = null
   if (objectMatch) {
@@ -162,6 +162,22 @@ export function fallbackMaterial(first: Material, second: Material): GeneratedMa
     name: `${lead} ${form}`,
     emoji: emojis[hash % emojis.length],
     description: `A locally synthesized fusion of ${left} and ${right}.`,
+  }
+}
+
+export function modelAssistedMaterial(modelSignal: string, first: Material, second: Material): GeneratedMaterial | null {
+  const cleanSignal = modelSignal.trim()
+  if (!cleanSignal) return null
+  const forms = ['Aurora', 'Bloom', 'Catalyst', 'Cipher', 'Core', 'Echo', 'Engine', 'Flux', 'Garden', 'Halo', 'Nexus', 'Prism', 'Pulse', 'Reactor', 'Shard', 'Spark']
+  const emojis = ['🌌', '🌱', '⚗️', '🔹', '💠', '🔮', '⚙️', '🌀', '🌻', '💫', '🧿', '🔷', '💓', '☢️', '✨', '⚡']
+  const hash = [...`${pairKey(first.name, second.name)}::${cleanSignal}`]
+    .reduce((total, char) => ((total * 31) + char.charCodeAt(0)) >>> 0, 2166136261)
+  const lead = hash % 2 === 0 ? first.name : second.name
+  const form = forms[hash % forms.length]
+  return {
+    name: `${lead} ${form}`,
+    emoji: emojis[(hash >>> 4) % emojis.length],
+    description: `An on-device AI interpretation of ${first.name} and ${second.name}.`,
   }
 }
 

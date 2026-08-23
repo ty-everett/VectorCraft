@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 import { env, pipeline } from '@huggingface/transformers'
-import { fallbackMaterial, parseGeneratedMaterial } from '../lib/crafting'
+import { fallbackMaterial, modelAssistedMaterial, parseGeneratedMaterial } from '../lib/crafting'
 import type { GeneratedMaterial, Material } from '../types'
 import { selectRuntimeProfile } from './runtime'
 
@@ -129,13 +129,16 @@ OUTPUT:`,
   }
   const output = await generator(messages, generationOptions)
   const raw = generatedText(output)
+  const modelSignals = [raw]
   let parsed = parseGeneratedMaterial(raw)
   if (!parsed) {
     const retry = await generator(
       `Invent a concise game item made from ${first.name} and ${second.name}. Reply with one line: NAME | EMOJI | SHORT DESCRIPTION.\nANSWER:`,
       generationOptions,
     )
-    parsed = parseGeneratedMaterial(generatedText(retry))
+    const retryRaw = generatedText(retry)
+    modelSignals.push(retryRaw)
+    parsed = parseGeneratedMaterial(retryRaw)
   }
   if (!parsed) {
     const nameCompletion = await generator(
@@ -150,7 +153,9 @@ OUTPUT:`,
         return_full_text: false,
       },
     )
-    const name = generatedText(nameCompletion)
+    const nameRaw = generatedText(nameCompletion)
+    modelSignals.push(nameRaw)
+    const name = nameRaw
       .replace(/<\|[^>]+\|>|```/g, '')
       .split(/[\n|.!?:;,]/)[0]
       .trim()
@@ -162,6 +167,7 @@ OUTPUT:`,
       `${name} | ${fallback.emoji} | An on-device AI fusion of ${first.name} and ${second.name}.`,
     )
   }
+  if (!parsed) parsed = modelAssistedMaterial(modelSignals.join('\n'), first, second)
   post({ type: 'status', task: 'generator', phase: 'ready', ...runtime })
   const resultRuntime = {
     device: runtime.device,

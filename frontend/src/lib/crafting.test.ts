@@ -5,6 +5,7 @@ import {
   getSeedRecipe,
   initialGame,
   loadGame,
+  modelAssistedMaterial,
   pairKey,
   parseGeneratedMaterial,
   uniqueMaterial,
@@ -48,6 +49,15 @@ describe('crafting domain', () => {
     const second = BASE_MATERIALS[4]
     expect(fallbackMaterial(first, second)).toEqual(fallbackMaterial(second, first))
     expect(uniqueMaterial({ name: 'Water', emoji: '💧', description: 'duplicate' }, BASE_MATERIALS).name).toBe('Water 2')
+  })
+
+  it('turns nonempty local-model signal into a curated model-assisted item', () => {
+    const first = BASE_MATERIALS[1]
+    const second = BASE_MATERIALS[4]
+    expect(modelAssistedMaterial('model completion A', first, second))
+      .toEqual(modelAssistedMaterial('model completion A', first, second))
+    expect(modelAssistedMaterial('', first, second)).toBeNull()
+    expect(modelAssistedMaterial('model completion A', first, second)?.description).toContain('on-device AI')
   })
 
   it('recovers safely from corrupt local progress', () => {
