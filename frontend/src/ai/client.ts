@@ -1,10 +1,11 @@
-import type { AiStatus, GeneratedMaterial, Material } from '../types'
+import type { AiStatus, GeneratedMaterial, Material, SimilarMaterial } from '../types'
 import { fallbackMaterial } from '../lib/crafting'
 import { reportError, signal } from '../lib/telemetry'
 
 interface CraftResult {
   material: GeneratedMaterial
   fallback: boolean
+  similar?: SimilarMaterial
   runtime: {
     device: 'webgpu' | 'wasm' | null
     profile: AiStatus['profile']
@@ -40,6 +41,7 @@ export class LocalAiClient {
   private pending = new Map<string, PendingRequest>()
   private listeners = new Set<StatusListener>()
   private status: AiStatus = DEFAULT_STATUS
+  private requestSequence = 0
 
   subscribe(listener: StatusListener): () => void {
     this.listeners.add(listener)
@@ -147,7 +149,7 @@ export class LocalAiClient {
   }
 
   private request<T>(payload: Record<string, unknown>): Promise<T> {
-    const id = globalThis.crypto?.randomUUID?.() ?? `request-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const id = globalThis.crypto?.randomUUID?.() ?? `request-${Date.now()}-${++this.requestSequence}`
     const worker = this.ensureWorker()
     return new Promise<T>((resolve, reject) => {
       const operation = typeof payload.type === 'string' ? payload.type : 'request'
@@ -163,13 +165,14 @@ export class LocalAiClient {
     return result
   }
 
-  async craft(first: Material, second: Material): Promise<CraftResult> {
+  async craft(first: Material, second: Material, materials: Material[]): Promise<CraftResult> {
+    const [left, right] = [first, second].sort((one, two) => one.name.localeCompare(two.name) || one.id.localeCompare(two.id))
     try {
-      return await this.request({ type: 'craft', first, second })
+      return await this.request({ type: 'craft', first: left, second: right, materials })
     } catch (error) {
       reportError(error, 'local-ai', { operation: 'craft', ...this.status })
       return {
-        material: fallbackMaterial(first, second),
+        material: fallbackMaterial(left, right),
         fallback: true,
         runtime: {
           device: this.status.device,

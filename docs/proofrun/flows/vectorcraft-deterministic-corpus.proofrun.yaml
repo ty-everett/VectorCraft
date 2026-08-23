@@ -1,0 +1,127 @@
+proofrunVersion: 1
+id: vectorcraft-deterministic-corpus
+name: VectorCraft deterministic corpus and signed contribution integrity
+surface:
+  repo: ty-everett/VectorCraft
+  workspace: /Users/tyeverett/projects/VectorCraft
+  dossier: docs/repos/ty-everett/VectorCraft.md
+  category: corpus-growth
+  audience: A first-time player who wants repeatable crafting and transparent contribution behavior.
+environment:
+  kind: production
+  baseUrl: https://vectorcraft.metanet.app
+  healthEndpoints:
+    - https://vectorcraft.metanet.app/
+    - https://usercom.babbage.systems/healthz
+  deployment:
+    system: cars
+    namespace: cars-project-e979bbd3c37c8c6da486e3041b572f56
+    workload: deployment/frontend
+    releaseSource: ty-everett/VectorCraft main
+safety:
+  stateChanging: true
+  spendCap:
+    amount: 0
+    unit: sats
+  testIdentities: []
+  cleanup:
+    required: false
+    instructions: Retain the anonymous signed ProofRun contribution as release evidence; no blockchain confirmation or spend is involved.
+matrix:
+  desktopBrowsers:
+    - chrome
+  mobileBrowsers:
+    - safari
+  mobileSimulators:
+    - ios-18.5-iphone-16
+  desktopWallets: []
+  mobileWallets: []
+  serverWallets: []
+  networks:
+    - mainnet
+preflight:
+  commands:
+    - description: Verify deterministic domain and semantic threshold tests
+      command: npm run verify
+      cwd: /Users/tyeverett/projects/VectorCraft
+    - description: Rebuild the reviewed corpus artifact
+      command: npm run corpus:export
+      cwd: /Users/tyeverett/projects/VectorCraft
+  requiredState:
+    - Production serves the candidate release and UserCom is healthy.
+flow:
+  steps:
+    - id: acknowledge-exact-contribution
+      actor: target-user
+      action: Read the first-run recipe contribution disclosure and enter the workshop.
+      expected:
+        ui:
+          - The exact recipe fields, local exclusions, anonymous signature, CC0 purpose, and Privacy reference are understandable on desktop and iPhone Safari.
+      timing:
+        thresholdMs: 30000
+    - id: repeat-order-independent-recipe
+      actor: target-user
+      action: Craft Earth + Earth and recall it; verify the built result is Mountain each time and survives reload.
+      expected:
+        ui:
+          - The first result and every recall resolve to the same name, emoji, description, and stable recipe identity for the fixed engine/model profile.
+        domain:
+          - Greedy local generation, deterministic fallback, corpus lookup, recipe keys, and tie-breaking contain no sampling or random variation.
+      timing:
+        thresholdMs: 5000
+    - id: verify-signed-contribution
+      actor: operator
+      action: Query UserCom for the correlated recipe.contributed packet and verify its P-256 signature with the checked-in staging tool.
+      expected:
+        domain:
+          - The packet contains only the disclosed recipe/provenance fields and its signature verifies against the included public key.
+        telemetry:
+          - recipe.contributed is tagged by outcome and source, and standard craft telemetry remains content-redacted.
+      timing:
+        thresholdMs: 60000
+    - id: semantic-collapse-policy
+      actor: operator
+      action: Inspect the candidate-to-inventory MiniLM comparison and execute the semantic-collapse regression tests.
+      expected:
+        domain:
+          - Exact names collapse at score 1; normalized embedding candidates collapse at or above 0.86 with a stable id tie-break; lower scores remain distinct.
+      timing:
+        thresholdMs: 120000
+assertions:
+  uiAppearance:
+    - Contribution, discovery, recall, and merge states remain legible on desktop and iPhone Safari.
+  audienceIntuition:
+    - A player understands that inference stays local while final recipes improve a reviewed shared corpus.
+  customerTrust:
+    - Contribution is explicit before play and the exact packet matches the Privacy notice.
+  flowSuccess:
+    - Corpus output, recall, persistence, signature verification, queue delivery, and semantic policy agree.
+  telemetryObservability:
+    - Operators can identify what was crafted from recipe.contributed without exposing raw model responses or unrelated state.
+  reliabilityRepeatability:
+    - Input order, repeat count, runtime retry, and connectivity do not create alternate recipes for the same engine/version pair.
+  performance:
+    - Corpus recall is immediate and contribution delivery never blocks play.
+telemetry:
+  expectedEvents:
+    - name: craft.succeeded
+      required: true
+    - name: craft.recalled
+      required: true
+    - name: recipe.contributed
+      required: true
+    - name: recipe.contribution_sent
+      required: true
+    - name: recipe.contribution_queued
+      required: false
+  queryInstructions: Query UserCom source vectorcraft by exact release and run window; export only the correlated public-safe signed recipe packets for local signature verification.
+performanceThresholds:
+  firstMeaningfulContentMs: 2000
+  uiFeedbackAfterActionMs: 500
+  fullFlowMs: 180000
+  telemetryVisibleMs: 60000
+recording:
+  runRecordTemplate: docs/runbooks/proofrun-run-record-template.md
+  productRunPath: docs/proofrun/runs/<YYYYMMDDTHHMMSSZ>-vectorcraft-deterministic-corpus.md
+  updateDossier: true
+  updateReadinessRegistry: true

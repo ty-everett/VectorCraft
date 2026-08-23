@@ -2,7 +2,8 @@
 
 import { env, pipeline } from '@huggingface/transformers'
 import { fallbackMaterial, modelAssistedMaterial, parseGeneratedMaterial } from '../lib/crafting'
-import type { GeneratedMaterial, Material } from '../types'
+import { bestSemanticMatch, cosineForNormalizedVectors } from '../lib/semantic'
+import type { GeneratedMaterial, Material, SimilarMaterial } from '../types'
 import { selectRuntimeProfile } from './runtime'
 
 const EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2'
@@ -11,6 +12,7 @@ env.allowLocalModels = false
 env.useBrowserCache = true
 
 type CallablePipeline = (input: unknown, options?: Record<string, unknown>) => Promise<unknown>
+type DisposablePipeline = CallablePipeline & { dispose?: () => void | Promise<void> }
 
 interface InitMessage {
   id: string
@@ -22,6 +24,7 @@ interface CraftMessage {
   type: 'craft'
   first: Material
   second: Material
+  materials: Material[]
 }
 
 interface SearchMessage {
@@ -80,6 +83,16 @@ async function getEmbedder(): Promise<CallablePipeline> {
   return embedder
 }
 
+async function releasePipeline(promise: Promise<CallablePipeline> | null): Promise<void> {
+  if (!promise) return
+  try {
+    const instance = await promise as DisposablePipeline
+    await instance.dispose?.()
+  } catch {
+    // A failed or partially loaded pipeline is safe to abandon before retry.
+  }
+}
+
 function generatedText(output: unknown): string {
   const first = Array.isArray(output) ? output[0] : output
   if (!first || typeof first !== 'object') return ''
@@ -94,11 +107,44 @@ function generatedText(output: unknown): string {
   return ''
 }
 
-async function craft(first: Material, second: Material): Promise<{
+function asRows(output: unknown): number[][] {
+  if (output && typeof output === 'object' && 'tolist' in output) {
+    const rows = (output as { tolist: () => unknown }).tolist()
+    if (Array.isArray(rows)) return rows as number[][]
+  }
+  return []
+}
+
+async function cacheMaterialVectors(materials: Material[]): Promise<CallablePipeline> {
+  const embedder = await getEmbedder()
+  const missing = materials.filter((material) => !vectorCache.has(material.id))
+  if (missing.length > 0) {
+    const output = await embedder(missing.map((material) => `${material.name}. ${material.description}`), { pooling: 'mean', normalize: true })
+    const rows = asRows(output)
+    missing.forEach((material, index) => vectorCache.set(material.id, rows[index] ?? []))
+  }
+  return embedder
+}
+
+async function findSimilar(candidate: GeneratedMaterial, materials: Material[]): Promise<SimilarMaterial | undefined> {
+  const exact = materials.find((material) => material.name.trim().toLowerCase() === candidate.name.trim().toLowerCase())
+  if (exact) return { id: exact.id, score: 1 }
+  const embedder = await cacheMaterialVectors(materials)
+  const output = await embedder(`${candidate.name}. ${candidate.description}`, { pooling: 'mean', normalize: true })
+  const candidateVector = asRows(output)[0] ?? []
+  return bestSemanticMatch(candidateVector, materials.map((material) => ({ id: material.id, vector: vectorCache.get(material.id) ?? [] })))
+}
+
+async function craft(first: Material, second: Material, materials: Material[]): Promise<{
   material: GeneratedMaterial
   fallback: boolean
+  similar?: SimilarMaterial
   runtime: { device: 'webgpu' | 'wasm'; profile: string; modelLabel: string; modelSize: string }
 }> {
+  if (runtime.device === 'wasm' && embedderPromise) {
+    await releasePipeline(embedderPromise)
+    embedderPromise = null
+  }
   const generator = await getGenerator()
   post({ type: 'status', task: 'generator', phase: 'working', ...runtime })
   const messages = [
@@ -146,9 +192,7 @@ OUTPUT:`,
       {
         max_new_tokens: 12,
         min_new_tokens: 2,
-        do_sample: true,
-        temperature: 0.8,
-        top_p: 0.9,
+        do_sample: false,
         repetition_penalty: 1.12,
         return_full_text: false,
       },
@@ -175,38 +219,21 @@ OUTPUT:`,
     modelLabel: runtime.generatorLabel,
     modelSize: runtime.generatorSize,
   }
-  return parsed
-    ? { material: parsed, fallback: false, runtime: resultRuntime }
-    : { material: fallbackMaterial(first, second), fallback: true, runtime: resultRuntime }
-}
-
-function asRows(output: unknown): number[][] {
-  if (output && typeof output === 'object' && 'tolist' in output) {
-    const rows = (output as { tolist: () => unknown }).tolist()
-    if (Array.isArray(rows)) return rows as number[][]
+  const material = parsed ?? fallbackMaterial(first, second)
+  if (runtime.device === 'wasm') {
+    await releasePipeline(generatorPromise)
+    generatorPromise = null
   }
-  return []
-}
-
-function dot(first: number[], second: number[]): number {
-  return first.reduce((total, value, index) => total + value * (second[index] ?? 0), 0)
+  const similar = await findSimilar(material, materials)
+  return { material, fallback: !parsed, similar, runtime: resultRuntime }
 }
 
 async function search(query: string, materials: Material[]): Promise<string[]> {
-  const embedder = await getEmbedder()
-  const missing = materials.filter((material) => !vectorCache.has(material.id))
-  if (missing.length > 0) {
-    const output = await embedder(
-      missing.map((material) => `${material.name}. ${material.description}`),
-      { pooling: 'mean', normalize: true },
-    )
-    const rows = asRows(output)
-    missing.forEach((material, index) => vectorCache.set(material.id, rows[index] ?? []))
-  }
+  const embedder = await cacheMaterialVectors(materials)
   const queryOutput = await embedder(query, { pooling: 'mean', normalize: true })
   const queryVector = asRows(queryOutput)[0] ?? []
   return materials
-    .map((material) => ({ id: material.id, score: dot(queryVector, vectorCache.get(material.id) ?? []) }))
+    .map((material) => ({ id: material.id, score: cosineForNormalizedVectors(queryVector, vectorCache.get(material.id) ?? []) }))
     .filter((entry) => entry.score > 0.16)
     .sort((first, second) => second.score - first.score)
     .slice(0, 40)
@@ -222,7 +249,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>): Promise<void> => {
       return
     }
     if (request.type === 'craft') {
-      post({ type: 'result', id: request.id, result: await craft(request.first, request.second) })
+      post({ type: 'result', id: request.id, result: await craft(request.first, request.second, request.materials) })
       return
     }
     post({ type: 'result', id: request.id, result: await search(request.query, request.materials) })

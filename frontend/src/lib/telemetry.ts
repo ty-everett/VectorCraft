@@ -4,6 +4,7 @@ const SOURCE = 'vectorcraft'
 const RELEASE_SHA = import.meta.env.VITE_RELEASE_SHA || 'local-dev'
 const ANONYMOUS_KEY = 'vectorcraft:anonymous-id:v1'
 const SESSION_KEY = 'vectorcraft:session-id:v1'
+const EVENT_QUEUE_KEY = 'vectorcraft:telemetry-queue:v1'
 const MAX_CONTEXT_DEPTH = 3
 const MAX_STRING_LENGTH = 500
 
@@ -59,6 +60,9 @@ function browserContext(): Context {
   return {
     release: RELEASE_SHA,
     language: nav.language,
+    userAgent: nav.userAgent,
+    platform: nav.platform,
+    hardwareConcurrency: nav.hardwareConcurrency,
     online: nav.onLine,
     mobile: /Mobi|Android|iPhone|iPad/i.test(nav.userAgent),
     appleWebKit: /AppleWebKit/i.test(nav.userAgent),
@@ -69,8 +73,25 @@ function browserContext(): Context {
   }
 }
 
-const queue: Context[] = []
+function restoredQueue(): Context[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const parsed = JSON.parse(localStorage.getItem(EVENT_QUEUE_KEY) || '[]') as unknown
+    return Array.isArray(parsed) ? parsed.slice(-200) as Context[] : []
+  } catch {
+    return []
+  }
+}
+
+const queue: Context[] = restoredQueue()
 let flushTimer: number | null = null
+let flushing = false
+let retryDelayMs = 3000
+
+function persistQueue(): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(EVENT_QUEUE_KEY, JSON.stringify(queue.slice(-200))) } catch { /* best effort */ }
+}
 
 function identifiers(): { anonymousId: string; sessionId: string } {
   return {
@@ -80,9 +101,13 @@ function identifiers(): { anonymousId: string; sessionId: string } {
 }
 
 async function flush(): Promise<void> {
+  if (flushing) return
   flushTimer = null
   if (queue.length === 0) return
+  flushing = true
   const events = queue.splice(0, 50)
+  persistQueue()
+  let failed = false
   try {
     const response = await fetch(SIGNAL_ENDPOINT, {
       method: 'POST',
@@ -91,8 +116,19 @@ async function flush(): Promise<void> {
       keepalive: true,
     })
     if (!response.ok) throw new Error(`UserCom returned ${response.status}`)
+    retryDelayMs = 3000
   } catch {
-    // Analytics is deliberately best-effort and must never interrupt play.
+    failed = true
+    queue.unshift(...events)
+    if (queue.length > 200) queue.splice(0, queue.length - 200)
+    persistQueue()
+  } finally {
+    flushing = false
+    if (queue.length > 0 && navigator.onLine && flushTimer == null) {
+      const delay = failed ? retryDelayMs : 250
+      if (failed) retryDelayMs = Math.min(60_000, retryDelayMs * 2)
+      flushTimer = window.setTimeout(() => void flush(), delay)
+    }
   }
 }
 
@@ -110,6 +146,8 @@ export function signal(name: string, surface: string, context: Context = {}, tag
     tags: tags.slice(0, 20),
     context: sanitizeTelemetry({ ...browserContext(), ...context }),
   })
+  if (queue.length > 200) queue.splice(0, queue.length - 200)
+  persistQueue()
   if (queue.length >= 10) void flush()
   else if (flushTimer == null) flushTimer = window.setTimeout(() => void flush(), 800)
 }
@@ -191,13 +229,16 @@ export function installGlobalDiagnostics(): () => void {
   })
   const onRejection = (event: PromiseRejectionEvent) => reportError(event.reason, 'promise')
   const onPageHide = () => void flush()
+  const onOnline = () => void flush()
   window.addEventListener('error', onError)
   window.addEventListener('unhandledrejection', onRejection)
   window.addEventListener('pagehide', onPageHide)
+  window.addEventListener('online', onOnline)
   return () => {
     window.removeEventListener('error', onError)
     window.removeEventListener('unhandledrejection', onRejection)
     window.removeEventListener('pagehide', onPageHide)
+    window.removeEventListener('online', onOnline)
   }
 }
 

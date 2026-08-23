@@ -12,3 +12,7 @@ At the time VectorCraft was forked (2026-08-23), OpenAlchemy did not include a l
 - `sentence-transformers/all-MiniLM-L6-v2` and the `Xenova/all-MiniLM-L6-v2` Transformers.js conversion are distributed under Apache-2.0.
 
 Model files are downloaded directly to the player's browser from Hugging Face on first use. VectorCraft does not redistribute their weights in this repository.
+
+## Infini-craft design study
+
+The project reviewed [CharlesFauman/infini-craft](https://github.com/CharlesFauman/infini-craft) as a product-design reference for spatial combination, split/duplicate controls, recipe lineage, collection sorting, persistence, sound cues, and corpus specialization. VectorCraft's implementation, assets, recipes, and training data are original and do not copy that repository's code or data. The reviewed repository did not include a root license, so its code and data are not redistributed here.

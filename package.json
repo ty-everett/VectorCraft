@@ -1,13 +1,15 @@
 {
   "name": "@ty-everett/vectorcraft",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "A browser-native local-AI crafting game deployed through CARS.",
   "license": "MIT",
   "scripts": {
     "start": "lars start",
     "dev": "npm --prefix frontend run dev",
     "verify": "npm --prefix frontend run verify",
+    "corpus:export": "node scripts/export-corpus.mjs",
+    "corpus:stage": "node scripts/stage-contributions.mjs",
     "build:app": "npm --prefix frontend run build",
     "build": "cars build Babbage",
     "predeploy": "cars project ensure-balance Babbage --min 1 --topup-to 250000",

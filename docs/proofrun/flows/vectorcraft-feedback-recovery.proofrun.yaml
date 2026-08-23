@@ -85,7 +85,7 @@ assertions:
   audienceIntuition:
     - Players can understand what diagnostics contain, opt out, submit anonymously, retry, and continue after local-model failure.
   customerTrust:
-    - Optional email and diagnostics are explicit and sensitive game content is excluded.
+    - Optional email and diagnostics are explicit; exact recipes use only the separate acknowledged contribution path.
   flowSuccess:
     - Browser acknowledgement, UserCom feedback storage, UserCom signals, and fallback result agree.
   telemetryObservability:

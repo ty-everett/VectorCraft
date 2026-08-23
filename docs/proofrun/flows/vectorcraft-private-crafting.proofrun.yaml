@@ -1,6 +1,6 @@
 proofrunVersion: 1
 id: vectorcraft-private-crafting
-name: VectorCraft private local-AI crafting and semantic search
+name: VectorCraft deterministic local-AI crafting, contribution, and semantic search
 surface:
   repo: ty-everett/VectorCraft
   workspace: /Users/tyeverett/projects/VectorCraft
@@ -50,14 +50,15 @@ preflight:
     - Production serves the exact candidate release and the iOS 18.5 simulator is available.
 flow:
   steps:
-    - id: classic-first-value
+    - id: corpus-first-value
       actor: target-user
       action: Combine Air and Earth, then craft Dust.
       expected:
         ui:
-          - Dust appears immediately with a CLASSIC source label and persists after reload.
+          - Dust appears immediately with a CORPUS source label and persists after reload.
         telemetry:
-          - craft.succeeded is queryable with source seed and no material names.
+          - craft.succeeded is queryable with source corpus and no material names in standard telemetry.
+          - recipe.contributed includes the disclosed signed Air + Earth to Dust recipe packet under CC0.
       timing:
         thresholdMs: 1000
     - id: novel-local-ai
@@ -69,7 +70,8 @@ flow:
         domain:
           - Supported Chrome uses SmolLM2 360M WebGPU; iPhone Safari uses SmolLM2 135M single-threaded WASM; other browsers select the safe profile their capabilities support.
         telemetry:
-          - ai model readiness and craft success are queryable without prompts, inputs, or output.
+          - ai model readiness and craft success are queryable without prompts, inputs, or output in standard telemetry.
+          - recipe.contributed separately records the disclosed signed recipe packet.
       timing:
         thresholdMs: 360000
     - id: semantic-search
@@ -88,20 +90,22 @@ assertions:
   audienceIntuition:
     - A first-time player can select two items, distinguish classic/local-AI/fallback results, and understand the initial model download.
   customerTrust:
-    - The privacy notice accurately distinguishes local game content from bounded operational telemetry.
+    - The acknowledgement and privacy notice accurately distinguish local inference/raw responses/state from exact signed recipe contributions and bounded operational telemetry.
   flowSuccess:
     - Classic craft, novel local inference, persistence, and semantic search all complete on the declared matrix.
   telemetryObservability:
-    - Release, runtime profile, funnel outcome, and bounded errors are queryable without game content.
+    - Release, runtime profile, funnel outcome, bounded errors, and separately disclosed signed recipe packets are queryable.
   reliabilityRepeatability:
     - Reload preserves discoveries, repeated recipes return promptly, and local-model failures recover without hanging.
   performance:
-    - Seed crafting responds within one second and uncached local inference completes within six minutes.
+    - Corpus crafting responds within one second and uncached local inference completes within six minutes.
 telemetry:
   expectedEvents:
     - name: app.opened
       required: true
     - name: craft.succeeded
+      required: true
+    - name: recipe.contributed
       required: true
     - name: craft.ai_started
       required: true
