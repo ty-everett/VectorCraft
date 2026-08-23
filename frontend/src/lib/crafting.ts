@@ -116,14 +116,25 @@ export function parseGeneratedMaterial(raw: string): GeneratedMaterial | null {
     ? candidate.description
     : raw.match(/description\s*[:=-]\s*["']?([^\n"'}]+)/i)?.[1]
 
-  if (!rawName) return null
-  const name = titleCase(rawName).replace(/[^\p{L}\p{N} '&-]/gu, '').trim()
+  const pipeParts = raw
+    .split('\n')
+    .map((line) => line.replace(/^(?:OUTPUT|ANSWER)\s*:\s*/i, '').trim())
+    .find((line) => line.split('|').length >= 3)
+    ?.split('|')
+    .map((part) => part.trim())
+
+  const resolvedName = rawName ?? pipeParts?.[0]
+  const resolvedEmoji = rawEmoji ?? pipeParts?.[1]
+  const resolvedDescription = rawDescription ?? pipeParts?.slice(2).join(' | ')
+
+  if (!resolvedName) return null
+  const name = titleCase(resolvedName).replace(/[^\p{L}\p{N} '&-]/gu, '').trim()
   if (name.length < 2 || name.length > 36) return null
 
   return {
     name,
-    emoji: firstEmoji(rawEmoji ?? raw) ?? '✨',
-    description: (rawDescription?.trim().replace(/^['"]|['"]$/g, '').slice(0, 110)) || 'A new form crafted from unexpected forces.',
+    emoji: firstEmoji(resolvedEmoji ?? raw) ?? '✨',
+    description: (resolvedDescription?.trim().replace(/^['"]|['"]$/g, '').slice(0, 110)) || 'A new form crafted from unexpected forces.',
   }
 }
 

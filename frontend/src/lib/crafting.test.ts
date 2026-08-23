@@ -27,6 +27,8 @@ describe('crafting domain', () => {
       .toEqual({ name: 'Glass Forest', emoji: '🌲', description: 'Crystal trees.' })
     expect(parseGeneratedMaterial('name: moon bridge\nemoji: 🌉\ndescription: a silver crossing'))
       .toEqual({ name: 'Moon Bridge', emoji: '🌉', description: 'a silver crossing' })
+    expect(parseGeneratedMaterial('OUTPUT: sky garden | 🌻 | Flowers carried by the wind.'))
+      .toEqual({ name: 'Sky Garden', emoji: '🌻', description: 'Flowers carried by the wind.' })
   })
 
   it('fails closed on unusable model output', () => {

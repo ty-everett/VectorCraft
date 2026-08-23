@@ -100,31 +100,25 @@ async function craft(first: Material, second: Material): Promise<{ material: Gen
   const messages = [
     {
       role: 'system',
-      content: 'You are VectorCraft. Return exactly one valid JSON object with name, emoji, and description. Never write commentary or markdown.',
+      content: 'You are VectorCraft. Invent one satisfying discovery. Reply with exactly: NAME | EMOJI | SHORT DESCRIPTION. One line only. No labels or commentary.',
     },
     {
       role: 'user',
-      content: `Invent one recognizable, satisfying game discovery from two inputs. Follow these examples exactly.
+      content: `Combine the two inputs into one recognizable game discovery. Follow this format exactly.
 
 INPUT: Fire + Water
-OUTPUT: {"name":"Steam","emoji":"♨️","description":"Water transformed into rising vapor."}
+OUTPUT: Steam | ♨️ | Water transformed into rising vapor.
 
 INPUT: Earth + Air
-OUTPUT: {"name":"Dust","emoji":"🌫️","description":"Earth made light enough to travel."}
-
-INPUT: DNA + Earth
-OUTPUT: {"name":"Life","emoji":"🌱","description":"A living pattern rooted in matter."}
+OUTPUT: Dust | 🌫️ | Earth made light enough to travel.
 
 INPUT: ${first.name} (${first.description}) + ${second.name} (${second.description})
 OUTPUT:`,
     },
   ]
   const output = await generator(messages, {
-    max_new_tokens: 88,
-    min_new_tokens: 12,
-    do_sample: true,
-    temperature: 0.7,
-    top_p: 0.9,
+    max_new_tokens: 48,
+    do_sample: false,
     repetition_penalty: 1.08,
     return_full_text: false,
   })
