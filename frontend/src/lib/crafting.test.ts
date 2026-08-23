@@ -39,6 +39,8 @@ describe('crafting domain', () => {
 
   it('fails closed on unusable model output', () => {
     expect(parseGeneratedMaterial('I cannot answer that.')).toBeNull()
+    expect(parseGeneratedMaterial('The following is a short description that summarizes the input and output.')).toBeNull()
+    expect(parseGeneratedMaterial('NAME | EMOJI | SHORT DESCRIPTION')).toBeNull()
   })
 
   it('creates deterministic offline fallbacks and unique names', () => {

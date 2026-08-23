@@ -137,6 +137,31 @@ OUTPUT:`,
     )
     parsed = parseGeneratedMaterial(generatedText(retry))
   }
+  if (!parsed) {
+    const nameCompletion = await generator(
+      `Complete only the final fusion name.\nFire + Water = Steam\nEarth + Air = Dust\nDNA + Earth = Life\n${first.name} + ${second.name} =`,
+      {
+        max_new_tokens: 12,
+        min_new_tokens: 2,
+        do_sample: true,
+        temperature: 0.8,
+        top_p: 0.9,
+        repetition_penalty: 1.12,
+        return_full_text: false,
+      },
+    )
+    const name = generatedText(nameCompletion)
+      .replace(/<\|[^>]+\|>|```/g, '')
+      .split(/[\n|.!?:;,]/)[0]
+      .trim()
+      .split(/\s+/)
+      .slice(0, 4)
+      .join(' ')
+    const fallback = fallbackMaterial(first, second)
+    parsed = parseGeneratedMaterial(
+      `${name} | ${fallback.emoji} | An on-device AI fusion of ${first.name} and ${second.name}.`,
+    )
+  }
   post({ type: 'status', task: 'generator', phase: 'ready', ...runtime })
   const resultRuntime = {
     device: runtime.device,

@@ -96,6 +96,7 @@ function firstEmoji(value: string): string | null {
 }
 
 export function parseGeneratedMaterial(raw: string): GeneratedMaterial | null {
+  const boilerplate = /\b(?:the following|short description|relevant information|input and output|output format|name and emoji|as an ai)\b/i
   const objectMatch = raw.match(/\{[\s\S]*\}/)
   let candidate: Record<string, unknown> | null = null
   if (objectMatch) {
@@ -127,7 +128,7 @@ export function parseGeneratedMaterial(raw: string): GeneratedMaterial | null {
     .replace(/```(?:json)?|```|<\|[^>]+\|>/gi, '')
     .split('\n')
     .map((line) => line.replace(/^(?:OUTPUT|ANSWER|RESULT)\s*:\s*/i, '').trim())
-    .find((line) => /\p{L}{2}/u.test(line) && !/\b(?:cannot|unable|sorry|refuse)\b/i.test(line))
+    .find((line) => /\p{L}{2}/u.test(line) && !/\b(?:cannot|unable|sorry|refuse)\b/i.test(line) && !boilerplate.test(line))
   const naturalName = naturalLine
     ?.replace(/^(?:the result is|combine(?:s|d)? into|a combination of)\s+/i, '')
     .split(/[.!?:;,|]/)[0]
@@ -141,7 +142,7 @@ export function parseGeneratedMaterial(raw: string): GeneratedMaterial | null {
 
   if (!resolvedName) return null
   const name = titleCase(resolvedName).replace(/[^\p{L}\p{N} '&-]/gu, '').trim()
-  if (name.length < 2 || name.length > 36) return null
+  if (name.length < 2 || name.length > 36 || boilerplate.test(name) || /^(?:name|item|answer|result)$/i.test(name)) return null
 
   return {
     name,
