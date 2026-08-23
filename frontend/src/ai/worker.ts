@@ -120,14 +120,23 @@ INPUT: ${first.name} (${first.description}) + ${second.name} (${second.descripti
 OUTPUT:`,
     },
   ]
-  const output = await generator(messages, {
+  const generationOptions = {
     max_new_tokens: 48,
+    min_new_tokens: 8,
     do_sample: false,
     repetition_penalty: 1.08,
     return_full_text: false,
-  })
+  }
+  const output = await generator(messages, generationOptions)
   const raw = generatedText(output)
-  const parsed = parseGeneratedMaterial(raw)
+  let parsed = parseGeneratedMaterial(raw)
+  if (!parsed) {
+    const retry = await generator(
+      `Invent a concise game item made from ${first.name} and ${second.name}. Reply with one line: NAME | EMOJI | SHORT DESCRIPTION.\nANSWER:`,
+      generationOptions,
+    )
+    parsed = parseGeneratedMaterial(generatedText(retry))
+  }
   post({ type: 'status', task: 'generator', phase: 'ready', ...runtime })
   const resultRuntime = {
     device: runtime.device,
