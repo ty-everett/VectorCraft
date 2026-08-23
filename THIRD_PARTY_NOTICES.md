@@ -8,7 +8,7 @@ At the time VectorCraft was forked (2026-08-23), OpenAlchemy did not include a l
 
 ## Models
 
-- `HuggingFaceTB/SmolLM2-360M-Instruct` and its Transformers.js ONNX conversion are distributed under Apache-2.0.
+- `HuggingFaceTB/SmolLM2-360M-Instruct`, `HuggingFaceTB/SmolLM2-135M-Instruct`, and their Transformers.js ONNX conversions are distributed under Apache-2.0.
 - `sentence-transformers/all-MiniLM-L6-v2` and the `Xenova/all-MiniLM-L6-v2` Transformers.js conversion are distributed under Apache-2.0.
 
 Model files are downloaded directly to the player's browser from Hugging Face on first use. VectorCraft does not redistribute their weights in this repository.

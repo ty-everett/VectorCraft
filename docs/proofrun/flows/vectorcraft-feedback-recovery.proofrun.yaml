@@ -1,0 +1,119 @@
+proofrunVersion: 1
+id: vectorcraft-feedback-recovery
+name: VectorCraft feedback, crash observability, and safe recovery
+surface:
+  repo: ty-everett/VectorCraft
+  workspace: /Users/tyeverett/projects/VectorCraft
+  dossier: docs/repos/ty-everett/VectorCraft.md
+  category: feedback
+  audience: Any player reporting a problem or recovering from a local-model failure.
+environment:
+  kind: production
+  baseUrl: https://vectorcraft.metanet.app
+  healthEndpoints:
+    - https://usercom.babbage.systems/healthz
+  deployment:
+    system: cars
+    namespace: cars-project-e979bbd3c37c8c6da486e3041b572f56
+    workload: deployment/frontend
+    releaseSource: ty-everett/VectorCraft main
+safety:
+  stateChanging: true
+  spendCap:
+    amount: 0
+    unit: sats
+  testIdentities:
+    - purpose: anonymous public-safe feedback proof
+      source: Unique ProofRun marker without contact or private data.
+  cleanup:
+    required: false
+    instructions: Retain the clearly labeled public-safe UserCom feedback and signal rows as release evidence.
+matrix:
+  desktopBrowsers:
+    - chrome
+  mobileBrowsers:
+    - safari
+  mobileSimulators:
+    - ios-18.5-iphone-16
+  desktopWallets: []
+  mobileWallets: []
+  serverWallets: []
+  networks:
+    - mainnet
+preflight:
+  commands:
+    - description: Check UserCom health
+      command: curl -fsS https://usercom.babbage.systems/healthz
+      cwd: /Users/tyeverett/projects/VectorCraft
+  requiredState:
+    - The production Feedback and Privacy controls are available without login.
+flow:
+  steps:
+    - id: inspect-privacy
+      actor: target-user
+      action: Open Privacy and verify the local-content and bounded-telemetry disclosure.
+      expected:
+        ui:
+          - The notice is readable and dismissible on desktop and iPhone Safari.
+      timing:
+        thresholdMs: 500
+    - id: submit-feedback
+      actor: target-user
+      action: Submit a unique public-safe marker without an email and with diagnostics enabled.
+      expected:
+        ui:
+          - A success toast appears and play state is preserved.
+        domain:
+          - UserCom stores one feedback row under source vectorcraft and surface feedback-form.
+        telemetry:
+          - feedback.opened, feedback.submitted, and feedback.client_acknowledged are queryable.
+      timing:
+        thresholdMs: 5000
+    - id: validate-recovery-diagnostics
+      actor: operator
+      action: Inspect bounded error telemetry from a controlled local-model incompatibility and confirm safe fallback behavior.
+      expected:
+        domain:
+          - Release, browser/runtime profile, safe message, stack asset and coordinates are present; prompts, discoveries, secrets, and raw state are absent.
+        telemetry:
+          - client.worker_error and craft.fallback_succeeded correlate in the same run window.
+      timing:
+        thresholdMs: 60000
+assertions:
+  uiAppearance:
+    - Feedback, privacy, success, fatal recovery, and fallback states remain legible on the declared matrix.
+  audienceIntuition:
+    - Players can understand what diagnostics contain, opt out, submit anonymously, retry, and continue after local-model failure.
+  customerTrust:
+    - Optional email and diagnostics are explicit and sensitive game content is excluded.
+  flowSuccess:
+    - Browser acknowledgement, UserCom feedback storage, UserCom signals, and fallback result agree.
+  telemetryObservability:
+    - Global errors, promise rejections, React crashes, worker errors, local-AI timeouts, funnel events, and feedback outcomes are release-correlated.
+  reliabilityRepeatability:
+    - Telemetry remains best-effort and never interrupts crafting or feedback recovery.
+  performance:
+    - Feedback opens immediately and UserCom acknowledges within five seconds.
+telemetry:
+  expectedEvents:
+    - name: feedback.opened
+      required: true
+    - name: feedback.submitted
+      required: true
+    - name: feedback.client_acknowledged
+      required: true
+    - name: client.worker_error
+      required: true
+    - name: craft.fallback_succeeded
+      required: true
+  queryInstructions: Query UserCom source vectorcraft by the run window and public-safe marker; verify diagnostics against the allowlist and redaction rules.
+performanceThresholds:
+  firstMeaningfulContentMs: 2000
+  uiFeedbackAfterActionMs: 500
+  fullFlowMs: 120000
+  telemetryVisibleMs: 60000
+recording:
+  runRecordTemplate: docs/runbooks/proofrun-run-record-template.md
+  productRunPath: docs/proofrun/runs/<YYYYMMDDTHHMMSSZ>-vectorcraft-feedback-recovery.md
+  updateDossier: true
+  updateReadinessRegistry: true

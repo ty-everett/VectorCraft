@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { localAi } from './ai/client'
+import { reportError, signal, submitFeedback } from './lib/telemetry'
 import {
   STORAGE_KEY,
   findRecipe,
@@ -18,6 +19,78 @@ interface Toast {
   id: number
   message: string
   tone: 'good' | 'neutral' | 'warning'
+}
+
+function FeedbackModal({ onClose, onSent, status }: { onClose: () => void; onSent: () => void; status: AiStatus }) {
+  const [feedback, setFeedback] = useState('')
+  const [email, setEmail] = useState('')
+  const [category, setCategory] = useState('idea')
+  const [includeDiagnostics, setIncludeDiagnostics] = useState(true)
+  const [state, setState] = useState<'idle' | 'sending' | 'error'>('idle')
+
+  async function send(event: React.FormEvent): Promise<void> {
+    event.preventDefault()
+    if (feedback.trim().length < 5 || state === 'sending') return
+    setState('sending')
+    try {
+      await submitFeedback({ feedback, email, category, includeDiagnostics, diagnostics: { ai: status } })
+      onSent()
+      onClose()
+    } catch (error) {
+      setState('error')
+      reportError(error, 'window', { operation: 'feedback.submit' })
+      signal('feedback.failed', 'feedback-form', { category })
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
+        <button className="modal-close" type="button" onClick={onClose} aria-label="Close feedback">×</button>
+        <span className="eyebrow">Help shape the world</span>
+        <h2 id="feedback-title">Send feedback</h2>
+        <p>Tell us what delighted you, broke, or should exist next.</p>
+        <form onSubmit={send}>
+          <label>Topic
+            <select value={category} onChange={(event) => setCategory(event.target.value)}>
+              <option value="idea">Idea</option>
+              <option value="bug">Bug</option>
+              <option value="local-ai">Local AI</option>
+              <option value="accessibility">Accessibility</option>
+            </select>
+          </label>
+          <label>Feedback
+            <textarea required minLength={5} maxLength={10000} value={feedback} onChange={(event) => setFeedback(event.target.value)} placeholder="What happened, or what should we craft next?" />
+          </label>
+          <label>Email <small>optional, only if you want a reply</small>
+            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
+          </label>
+          <label className="check-row">
+            <input type="checkbox" checked={includeDiagnostics} onChange={(event) => setIncludeDiagnostics(event.target.checked)} />
+            <span>Include release, browser class, viewport, model profile, and connectivity. Never includes prompts or discoveries.</span>
+          </label>
+          {state === 'error' && <p className="form-error" role="alert">Feedback could not be sent. Please try again.</p>}
+          <button className="primary-action" type="submit" disabled={state === 'sending' || feedback.trim().length < 5}>{state === 'sending' ? 'Sending…' : 'Send feedback'}</button>
+        </form>
+      </section>
+    </div>
+  )
+}
+
+function PrivacyModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="modal-card compact" role="dialog" aria-modal="true" aria-labelledby="privacy-title">
+        <button className="modal-close" type="button" onClick={onClose} aria-label="Close privacy notice">×</button>
+        <span className="eyebrow">Privacy by design</span>
+        <h2 id="privacy-title">What stays local</h2>
+        <p>Your prompts, model output, discoveries, recipes, and model inference stay in your browser. Hugging Face serves static model files.</p>
+        <p>VectorCraft sends privacy-bounded product events and crash diagnostics to UserCom: release, browser class, viewport, model profile, network state, event name, and sanitized errors. It never sends prompts, discoveries, wallet data, secrets, or raw model output.</p>
+        <p>Feedback is sent only when you submit the form. Your optional email is used only to reply.</p>
+        <button className="primary-action" type="button" onClick={onClose}>Got it</button>
+      </section>
+    </div>
+  )
 }
 
 function MaterialCard({ material, onPick }: { material: Material; onPick: (material: Material) => void }) {
@@ -72,7 +145,8 @@ function ForgeSlot({ index, material, onRemove, onDrop }: {
 }
 
 function ModelPanel({ status, onInitialize }: { status: AiStatus; onInitialize: () => void }) {
-  const modelSize = status.device === 'wasm' ? '~386 MB' : '~272 MB'
+  const modelName = status.modelLabel ?? (status.device === 'wasm' ? 'SmolLM2 135M Instruct' : 'SmolLM2 360M Instruct')
+  const modelSize = status.modelSize ?? (status.device === 'wasm' ? '~137 MB' : '~272 MB')
   return (
     <section className="model-panel panel" aria-labelledby="model-heading">
       <div className="panel-heading">
@@ -98,8 +172,8 @@ function ModelPanel({ status, onInitialize }: { status: AiStatus; onInitialize: 
       <div className="model-card">
         <div>
           <span className="model-kicker">CRAFT / OPEN WEIGHTS</span>
-          <strong>SmolLM2 360M Instruct</strong>
-          <small>{status.device ? modelSize : '272–386 MB'} · 4-bit ONNX</small>
+          <strong>{modelName}</strong>
+          <small>{status.device ? modelSize : '137–272 MB'} · {status.device ? (status.device === 'wasm' ? '8-bit' : '4-bit') : 'adaptive'} ONNX</small>
         </div>
         <span className="license">Apache 2.0</span>
       </div>
@@ -119,7 +193,7 @@ function ModelPanel({ status, onInitialize }: { status: AiStatus; onInitialize: 
 
       <p className="privacy-note">
         <span aria-hidden="true">◉</span>
-        Prompts, recipes, and model output never leave this browser. Hugging Face serves static model weights only.
+        Prompts, recipes, and model output never leave this browser. Safari automatically uses the memory-safe WASM model.
       </p>
     </section>
   )
@@ -132,7 +206,12 @@ export default function App() {
   const [semanticIds, setSemanticIds] = useState<string[] | null>(null)
   const [isCrafting, setIsCrafting] = useState(false)
   const [lastResultId, setLastResultId] = useState<string | null>(null)
-  const [status, setStatus] = useState<AiStatus>({ phase: 'idle', task: null, label: 'On-device models are asleep', progress: null, device: null })
+  const [status, setStatus] = useState<AiStatus>({
+    phase: 'idle', task: null, label: 'On-device models are asleep', progress: null,
+    device: null, profile: null, modelLabel: null, modelSize: null,
+  })
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [privacyOpen, setPrivacyOpen] = useState(false)
   const [toasts, setToasts] = useState<Toast[]>([])
   const toastSequence = useRef(0)
   const searchSequence = useRef(0)
@@ -150,7 +229,10 @@ export default function App() {
     const timeout = window.setTimeout(() => {
       localAi.search(clean, game.materials)
         .then((ids) => {
-          if (sequence === searchSequence.current) setSemanticIds(ids)
+          if (sequence === searchSequence.current) {
+            setSemanticIds(ids)
+            signal('search.completed', 'inventory', { resultCount: ids.length, inventorySize: game.materials.length })
+          }
         })
         .catch(() => {
           if (sequence === searchSequence.current) setSemanticIds(null)
@@ -215,6 +297,7 @@ export default function App() {
       setGame((current) => ({ ...current, craftCount: current.craftCount + 1 }))
       setSlots([null, null])
       toast(`Recipe recalled: ${materialMap.get(existing.outputId)?.name ?? 'discovery'}`)
+      signal('craft.recalled', 'forge', { inventorySize: game.materials.length })
       return
     }
 
@@ -224,12 +307,15 @@ export default function App() {
       if (seed) {
         const material = commitDiscovery(first, second, seed, 'seed')
         toast(`Discovered ${material.emoji} ${material.name}`, 'good')
+        signal('craft.succeeded', 'forge', { source: 'seed', inventorySize: game.materials.length + 1 })
         return
       }
+      signal('craft.ai_started', 'forge', { ...status, inventorySize: game.materials.length })
       const result = await localAi.craft(first, second)
       const source: CraftSource = result.fallback ? 'local-fallback' : 'local-ai'
       const material = commitDiscovery(first, second, result.material, source)
       toast(result.fallback ? `Local fallback forged ${material.name}` : `Local AI discovered ${material.name}`, result.fallback ? 'warning' : 'good')
+      signal(result.fallback ? 'craft.fallback_succeeded' : 'craft.ai_succeeded', 'forge', { ...status, inventorySize: game.materials.length + 1 })
     } finally {
       setIsCrafting(false)
     }
@@ -252,6 +338,22 @@ export default function App() {
     link.click()
     URL.revokeObjectURL(url)
     toast('Progress exported from this browser')
+    signal('world.exported', 'inventory', { inventorySize: game.materials.length, craftCount: game.craftCount })
+  }
+
+  async function shareGame(): Promise<void> {
+    const share = { title: 'VectorCraft', text: 'Craft an infinite world with private, local AI.', url: window.location.origin }
+    const nativeShare = (navigator as unknown as { share?: (data: ShareData) => Promise<void> }).share
+    try {
+      if (nativeShare) await nativeShare.call(navigator, share)
+      else await navigator.clipboard.writeText(share.url)
+      toast(nativeShare ? 'Share sheet opened' : 'VectorCraft link copied', 'good')
+      signal('growth.share_completed', 'footer', { method: nativeShare ? 'native' : 'clipboard' })
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      reportError(error, 'window', { operation: 'share' })
+      toast('Could not share this time', 'warning')
+    }
   }
 
   return (
@@ -266,7 +368,7 @@ export default function App() {
           <small>LOCAL AI LAB</small>
         </a>
         <div className="topbar-center">
-          <span className="privacy-pill"><i /> ZERO BACKEND</span>
+          <span className="privacy-pill"><i /> ZERO INFERENCE BACKEND</span>
           <p>Your world exists on this device.</p>
         </div>
         <div className="stats">
@@ -340,13 +442,27 @@ export default function App() {
           </div>
         </section>
 
-        <ModelPanel status={status} onInitialize={() => localAi.initialize().catch(() => toast('The local model could not be cached', 'warning'))} />
+        <ModelPanel status={status} onInitialize={() => {
+          signal('ai.cache_requested', 'model-lab', { ...status })
+          localAi.initialize().catch((error) => {
+            reportError(error, 'local-ai', { operation: 'initialize', ...status })
+            toast('The local model could not be cached', 'warning')
+          })
+        }} />
       </main>
 
       <footer>
         <p>Forked with attribution from <a href="https://github.com/BloodyFish/OpenAlchemy">OpenAlchemy</a>. Rebuilt for private browser inference.</p>
-        <div><a href="https://github.com/ty-everett/VectorCraft">Source</a><span>•</span><span title={RELEASE_SHA}>release {RELEASE_SHA.slice(0, 7)}</span></div>
+        <div className="footer-actions">
+          <button type="button" onClick={() => { setFeedbackOpen(true); signal('feedback.opened', 'feedback-form') }}>Feedback</button>
+          <button type="button" onClick={() => setPrivacyOpen(true)}>Privacy</button>
+          <button type="button" onClick={shareGame}>Share</button>
+          <a href="https://github.com/ty-everett/VectorCraft">Source</a><span>•</span><span title={RELEASE_SHA}>release {RELEASE_SHA.slice(0, 7)}</span>
+        </div>
       </footer>
+
+      {feedbackOpen && <FeedbackModal status={status} onClose={() => setFeedbackOpen(false)} onSent={() => toast('Feedback received — thank you', 'good')} />}
+      {privacyOpen && <PrivacyModal onClose={() => setPrivacyOpen(false)} />}
 
       <div className="toast-stack" aria-live="polite">
         {toasts.map((item) => <div className={`toast ${item.tone}`} key={item.id}>{item.message}</div>)}

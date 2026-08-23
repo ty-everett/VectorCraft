@@ -39,4 +39,7 @@ export interface AiStatus {
   label: string
   progress: number | null
   device: 'webgpu' | 'wasm' | null
+  profile: 'desktop-webgpu' | 'portable-wasm' | null
+  modelLabel: string | null
+  modelSize: string | null
 }

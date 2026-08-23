@@ -1,0 +1,122 @@
+proofrunVersion: 1
+id: vectorcraft-private-crafting
+name: VectorCraft private local-AI crafting and semantic search
+surface:
+  repo: ty-everett/VectorCraft
+  workspace: /Users/tyeverett/projects/VectorCraft
+  dossier: docs/repos/ty-everett/VectorCraft.md
+  category: core-game
+  audience: A first-time player using desktop Chrome or iPhone Safari without an account or wallet.
+environment:
+  kind: production
+  baseUrl: https://vectorcraft.metanet.app
+  healthEndpoints:
+    - https://vectorcraft.metanet.app/
+  deployment:
+    system: cars
+    namespace: cars-project-e979bbd3c37c8c6da486e3041b572f56
+    workload: deployment/frontend
+    releaseSource: ty-everett/VectorCraft main
+safety:
+  stateChanging: true
+  spendCap:
+    amount: 0
+    unit: sats
+  testIdentities: []
+  cleanup:
+    required: true
+    instructions: Reset the disposable browser world or remove VectorCraft site data after the run.
+matrix:
+  desktopBrowsers:
+    - chrome
+  mobileBrowsers:
+    - safari
+  mobileSimulators:
+    - ios-18.5-iphone-16
+  desktopWallets: []
+  mobileWallets: []
+  serverWallets: []
+  networks:
+    - mainnet
+preflight:
+  commands:
+    - description: Check production surface
+      command: curl -fsS https://vectorcraft.metanet.app/
+      cwd: /Users/tyeverett/projects/VectorCraft
+    - description: Check UserCom health
+      command: curl -fsS https://usercom.babbage.systems/healthz
+      cwd: /Users/tyeverett/projects/VectorCraft
+  requiredState:
+    - Production serves the exact candidate release and the iOS 18.5 simulator is available.
+flow:
+  steps:
+    - id: classic-first-value
+      actor: target-user
+      action: Combine Air and Earth, then craft Dust.
+      expected:
+        ui:
+          - Dust appears immediately with a CLASSIC source label and persists after reload.
+        telemetry:
+          - craft.succeeded is queryable with source seed and no material names.
+      timing:
+        thresholdMs: 1000
+    - id: novel-local-ai
+      actor: target-user
+      action: Combine Dust and DNA to invoke the local crafting model on desktop Chrome and iPhone Safari.
+      expected:
+        ui:
+          - Model download or working progress is visible and the result is labeled LOCAL AI, not LOCAL FALLBACK.
+        domain:
+          - Chrome uses SmolLM2 360M WebGPU; iPhone Safari uses SmolLM2 135M single-threaded WASM.
+        telemetry:
+          - ai model readiness and craft success are queryable without prompts, inputs, or output.
+      timing:
+        thresholdMs: 360000
+    - id: semantic-search
+      actor: target-user
+      action: Search the inventory for a meaning such as biology.
+      expected:
+        ui:
+          - DNA is ranked as a semantic result while the browser remains responsive.
+        telemetry:
+          - search.completed records only result and inventory counts.
+      timing:
+        thresholdMs: 120000
+assertions:
+  uiAppearance:
+    - Forge, inventory, model state, and result labels remain legible without overlap on desktop and iPhone Safari.
+  audienceIntuition:
+    - A first-time player can select two items, distinguish classic/local-AI/fallback results, and understand the initial model download.
+  customerTrust:
+    - The privacy notice accurately distinguishes local game content from bounded operational telemetry.
+  flowSuccess:
+    - Classic craft, novel local inference, persistence, and semantic search all complete on the declared matrix.
+  telemetryObservability:
+    - Release, runtime profile, funnel outcome, and bounded errors are queryable without game content.
+  reliabilityRepeatability:
+    - Reload preserves discoveries, repeated recipes return promptly, and local-model failures recover without hanging.
+  performance:
+    - Seed crafting responds within one second and uncached local inference completes within six minutes.
+telemetry:
+  expectedEvents:
+    - name: app.opened
+      required: true
+    - name: craft.succeeded
+      required: true
+    - name: craft.ai_started
+      required: true
+    - name: craft.ai_succeeded
+      required: true
+    - name: search.completed
+      required: true
+  queryInstructions: Query UserCom source vectorcraft by exact release and run window; inspect event names, runtime profile, outcome, counts, and safe error fields only.
+performanceThresholds:
+  firstMeaningfulContentMs: 2000
+  uiFeedbackAfterActionMs: 500
+  fullFlowMs: 480000
+  telemetryVisibleMs: 60000
+recording:
+  runRecordTemplate: docs/runbooks/proofrun-run-record-template.md
+  productRunPath: docs/proofrun/runs/<YYYYMMDDTHHMMSSZ>-vectorcraft-private-crafting.md
+  updateDossier: true
+  updateReadinessRegistry: true

@@ -3,8 +3,8 @@
 import { env, pipeline } from '@huggingface/transformers'
 import { fallbackMaterial, parseGeneratedMaterial } from '../lib/crafting'
 import type { GeneratedMaterial, Material } from '../types'
+import { selectRuntimeProfile } from './runtime'
 
-const GENERATOR_MODEL = 'HuggingFaceTB/SmolLM2-360M-Instruct'
 const EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2'
 
 env.allowLocalModels = false
@@ -33,7 +33,9 @@ interface SearchMessage {
 
 type WorkerRequest = InitMessage | CraftMessage | SearchMessage
 
-const device = 'gpu' in navigator ? 'webgpu' : 'wasm'
+const runtime = selectRuntimeProfile(navigator.userAgent, 'gpu' in navigator, self.isSecureContext)
+const device = runtime.device
+if (runtime.singleThreadedWasm && env.backends.onnx.wasm) env.backends.onnx.wasm.numThreads = 1
 let generatorPromise: Promise<CallablePipeline> | null = null
 let embedderPromise: Promise<CallablePipeline> | null = null
 const vectorCache = new Map<string, number[]>()
@@ -46,27 +48,27 @@ function progress(task: 'generator' | 'embeddings') {
   return (event: Record<string, unknown>): void => {
     const value = typeof event.progress === 'number' ? Math.max(0, Math.min(100, event.progress)) : null
     const file = typeof event.file === 'string' ? event.file.split('/').at(-1) : null
-    post({ type: 'progress', task, progress: value, file, device })
+    post({ type: 'progress', task, progress: value, file, ...runtime })
   }
 }
 
 async function getGenerator(): Promise<CallablePipeline> {
   if (!generatorPromise) {
-    post({ type: 'status', task: 'generator', phase: 'loading', device })
-    generatorPromise = pipeline('text-generation', GENERATOR_MODEL, {
+    post({ type: 'status', task: 'generator', phase: 'loading', ...runtime })
+    generatorPromise = pipeline('text-generation', runtime.generatorModel, {
       device: device === 'webgpu' ? 'webgpu' : undefined,
-      dtype: device === 'webgpu' ? 'q4f16' : 'q4',
+      dtype: runtime.generatorDtype,
       progress_callback: progress('generator'),
     }) as unknown as Promise<CallablePipeline>
   }
   const generator = await generatorPromise
-  post({ type: 'status', task: 'generator', phase: 'ready', device })
+  post({ type: 'status', task: 'generator', phase: 'ready', ...runtime })
   return generator
 }
 
 async function getEmbedder(): Promise<CallablePipeline> {
   if (!embedderPromise) {
-    post({ type: 'status', task: 'embeddings', phase: 'loading', device })
+    post({ type: 'status', task: 'embeddings', phase: 'loading', ...runtime })
     embedderPromise = pipeline('feature-extraction', EMBEDDING_MODEL, {
       device: device === 'webgpu' ? 'webgpu' : undefined,
       dtype: 'q8',
@@ -74,7 +76,7 @@ async function getEmbedder(): Promise<CallablePipeline> {
     }) as unknown as Promise<CallablePipeline>
   }
   const embedder = await embedderPromise
-  post({ type: 'status', task: 'embeddings', phase: 'ready', device })
+  post({ type: 'status', task: 'embeddings', phase: 'ready', ...runtime })
   return embedder
 }
 
@@ -94,7 +96,7 @@ function generatedText(output: unknown): string {
 
 async function craft(first: Material, second: Material): Promise<{ material: GeneratedMaterial; fallback: boolean }> {
   const generator = await getGenerator()
-  post({ type: 'status', task: 'generator', phase: 'working', device })
+  post({ type: 'status', task: 'generator', phase: 'working', ...runtime })
   const messages = [
     {
       role: 'system',
@@ -128,7 +130,7 @@ OUTPUT:`,
   })
   const raw = generatedText(output)
   const parsed = parseGeneratedMaterial(raw)
-  post({ type: 'status', task: 'generator', phase: 'ready', device })
+  post({ type: 'status', task: 'generator', phase: 'ready', ...runtime })
   return parsed
     ? { material: parsed, fallback: false }
     : { material: fallbackMaterial(first, second), fallback: true }
@@ -172,7 +174,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>): Promise<void> => {
   try {
     if (request.type === 'init') {
       await getGenerator()
-      post({ type: 'result', id: request.id, result: { device } })
+      post({ type: 'result', id: request.id, result: runtime })
       return
     }
     if (request.type === 'craft') {
@@ -181,6 +183,17 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>): Promise<void> => {
     }
     post({ type: 'result', id: request.id, result: await search(request.query, request.materials) })
   } catch (error) {
+    const normalized = error instanceof Error ? error : new Error(String(error))
+    console.error('[VectorCraft local AI worker]', normalized)
+    post({
+      type: 'diagnostic',
+      origin: 'worker',
+      operation: request.type,
+      message: normalized.message,
+      name: normalized.name,
+      stack: normalized.stack,
+      ...runtime,
+    })
     if (request.type === 'craft') {
       post({
         type: 'result',
@@ -188,8 +201,8 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>): Promise<void> => {
         result: { material: fallbackMaterial(request.first, request.second), fallback: true },
       })
     } else {
-      post({ type: 'error', id: request.id, message: error instanceof Error ? error.message : String(error) })
+      post({ type: 'error', id: request.id, message: normalized.message })
     }
-    post({ type: 'status', task: request.type === 'search' ? 'embeddings' : 'generator', phase: 'error', device })
+    post({ type: 'status', task: request.type === 'search' ? 'embeddings' : 'generator', phase: 'error', ...runtime })
   }
 }
