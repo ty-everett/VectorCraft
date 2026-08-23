@@ -315,7 +315,10 @@ export default function App() {
       const source: CraftSource = result.fallback ? 'local-fallback' : 'local-ai'
       const material = commitDiscovery(first, second, result.material, source)
       toast(result.fallback ? `Local fallback forged ${material.name}` : `Local AI discovered ${material.name}`, result.fallback ? 'warning' : 'good')
-      signal(result.fallback ? 'craft.fallback_succeeded' : 'craft.ai_succeeded', 'forge', { ...status, inventorySize: game.materials.length + 1 })
+      signal(result.fallback ? 'craft.fallback_succeeded' : 'craft.ai_succeeded', 'forge', {
+        ...result.runtime,
+        inventorySize: game.materials.length + 1,
+      })
     } finally {
       setIsCrafting(false)
     }

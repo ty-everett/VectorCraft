@@ -94,7 +94,11 @@ function generatedText(output: unknown): string {
   return ''
 }
 
-async function craft(first: Material, second: Material): Promise<{ material: GeneratedMaterial; fallback: boolean }> {
+async function craft(first: Material, second: Material): Promise<{
+  material: GeneratedMaterial
+  fallback: boolean
+  runtime: { device: 'webgpu' | 'wasm'; profile: string; modelLabel: string; modelSize: string }
+}> {
   const generator = await getGenerator()
   post({ type: 'status', task: 'generator', phase: 'working', ...runtime })
   const messages = [
@@ -125,9 +129,15 @@ OUTPUT:`,
   const raw = generatedText(output)
   const parsed = parseGeneratedMaterial(raw)
   post({ type: 'status', task: 'generator', phase: 'ready', ...runtime })
+  const resultRuntime = {
+    device: runtime.device,
+    profile: runtime.profile,
+    modelLabel: runtime.generatorLabel,
+    modelSize: runtime.generatorSize,
+  }
   return parsed
-    ? { material: parsed, fallback: false }
-    : { material: fallbackMaterial(first, second), fallback: true }
+    ? { material: parsed, fallback: false, runtime: resultRuntime }
+    : { material: fallbackMaterial(first, second), fallback: true, runtime: resultRuntime }
 }
 
 function asRows(output: unknown): number[][] {
@@ -192,7 +202,16 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>): Promise<void> => {
       post({
         type: 'result',
         id: request.id,
-        result: { material: fallbackMaterial(request.first, request.second), fallback: true },
+        result: {
+          material: fallbackMaterial(request.first, request.second),
+          fallback: true,
+          runtime: {
+            device: runtime.device,
+            profile: runtime.profile,
+            modelLabel: runtime.generatorLabel,
+            modelSize: runtime.generatorSize,
+          },
+        },
       })
     } else {
       post({ type: 'error', id: request.id, message: normalized.message })

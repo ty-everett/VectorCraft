@@ -5,6 +5,12 @@ import { reportError, signal } from '../lib/telemetry'
 interface CraftResult {
   material: GeneratedMaterial
   fallback: boolean
+  runtime: {
+    device: 'webgpu' | 'wasm' | null
+    profile: AiStatus['profile']
+    modelLabel: string | null
+    modelSize: string | null
+  }
 }
 
 type StatusListener = (status: AiStatus) => void
@@ -162,7 +168,16 @@ export class LocalAiClient {
       return await this.request({ type: 'craft', first, second })
     } catch (error) {
       reportError(error, 'local-ai', { operation: 'craft', ...this.status })
-      return { material: fallbackMaterial(first, second), fallback: true }
+      return {
+        material: fallbackMaterial(first, second),
+        fallback: true,
+        runtime: {
+          device: this.status.device,
+          profile: this.status.profile,
+          modelLabel: this.status.modelLabel,
+          modelSize: this.status.modelSize,
+        },
+      }
     }
   }
 
