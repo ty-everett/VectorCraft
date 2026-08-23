@@ -153,6 +153,7 @@ export default function App() {
   const [semanticIds, setSemanticIds] = useState<string[] | null>(null)
   const [isCrafting, setIsCrafting] = useState(false)
   const [lastResultId, setLastResultId] = useState<string | null>(null)
+  const [lastResultSource, setLastResultSource] = useState<CraftSource | null>(null)
   const [inspectId, setInspectId] = useState<string | null>(null)
   const [selectedWorkbenchId, setSelectedWorkbenchId] = useState<string | null>(null)
   const [workbenchPending, setWorkbenchPending] = useState<{ x: number; y: number } | null>(null)
@@ -298,7 +299,7 @@ export default function App() {
       const earned = achievementsFor(nextGame)
       const newAchievements = earned.filter((id) => !game.achievements.includes(id))
       nextGame = { ...nextGame, achievements: [...new Set([...game.achievements, ...earned])] }
-      setGame(nextGame); setLastResultId(output.id); setSlots([null, null]); setSelectedWorkbenchId(placement ? workspace.at(-1)?.id ?? null : selectedWorkbenchId)
+      setGame(nextGame); setLastResultId(output.id); setLastResultSource(recipe.source); setSlots([null, null]); setSelectedWorkbenchId(placement ? workspace.at(-1)?.id ?? null : selectedWorkbenchId)
       if (outcome === 'collapsed') { playCue('collapse', game.settings.sound); haptic([10, 30, 10], game.settings.haptics); toast(`Merged with ${output.emoji} ${output.name} — too similar to duplicate`, 'neutral') }
       else if (outcome === 'recalled') { playCue('recall', game.settings.sound); haptic(8, game.settings.haptics); toast(`Recipe recalled: ${output.emoji} ${output.name}`) }
       else { playCue('discovery', game.settings.sound); haptic([15, 35, 20], game.settings.haptics); toast(`Discovered ${output.emoji} ${output.name}`, 'good') }
@@ -376,7 +377,7 @@ export default function App() {
     try { const packet = await signRecipe(contribution(first, second, material, recipe, 'recalled')); await navigator.clipboard.writeText(JSON.stringify(packet, null, 2)); toast('Signed recipe packet copied', 'good'); signal('recipe.packet_copied', 'item-detail', { generation: material.generation }) } catch (error) { reportError(error, 'window', { operation: 'recipe.packet' }); toast('Could not create the signed packet', 'warning') }
   }
 
-  function reset(): void { if (!window.confirm('Reset every VectorCraft discovery and workbench item on this device?')) return; setGame(initialGame()); setSlots([null, null]); setLastResultId(null); setInspectId(null); toast('World reset to its five origin elements') }
+  function reset(): void { if (!window.confirm('Reset every VectorCraft discovery and workbench item on this device?')) return; setGame(initialGame()); setSlots([null, null]); setLastResultId(null); setLastResultSource(null); setInspectId(null); toast('World reset to its five origin elements') }
 
   return <div className="app-shell">
     <div className="ambient ambient-one" /><div className="ambient ambient-two" />
@@ -395,7 +396,7 @@ export default function App() {
         <article className={`daily-challenge ${challengeComplete ? 'complete' : ''}`}><span>{challengeComplete ? '✓' : 'TODAY'}</span><div><strong>{challenge.emoji} {challengeComplete ? challenge.target : 'Mystery recipe'}</strong><small>{challengeComplete ? 'Challenge complete' : `${challenge.first} + ${challenge.second}`}</small></div></article>
         <div className="forge-stage"><div className="stage-ring ring-one" /><div className="stage-ring ring-two" /><div className="slot-grid"><ForgeSlot index={0} material={selected[0]} onRemove={() => setSlots(([, second]) => [null, second])} onDrop={(id) => materialMap.has(id) && setSlots(([, second]) => [id, second])} /><div className="plus-sign" aria-hidden="true">+</div><ForgeSlot index={1} material={selected[1]} onRemove={() => setSlots(([first]) => [first, null])} onDrop={(id) => materialMap.has(id) && setSlots(([first]) => [first, id])} /></div></div>
         <button className="craft-button" type="button" disabled={!selected[0] || !selected[1] || isCrafting} onClick={() => selected[0] && selected[1] && void performCraft(selected[0].id, selected[1].id)}><span className="craft-icon" aria-hidden="true">◇</span><span>{isCrafting ? 'LOCAL MODELS ARE CRAFTING…' : 'CRAFT DISCOVERY'}</span><small>{selected[0] && selected[1] ? `${selected[0].name} + ${selected[1].name}` : 'SELECT TWO ELEMENTS'}</small></button>
-        <div className={`result-card ${lastResult ? 'visible' : ''}`} aria-live="polite">{lastResult ? <><span className="result-emoji" aria-hidden="true">{lastResult.emoji}</span><div><span className="eyebrow">Latest discovery · generation {lastResult.generation}</span><h2>{lastResult.name}</h2><p>{lastResult.description}</p></div><button className="source-chip" onClick={() => setInspectId(lastResult.id)}>{sourceLabel(lastResult.source)} ↗</button></> : <p>Your next discovery will crystallize here.</p>}</div>
+        <div className={`result-card ${lastResult ? 'visible' : ''}`} aria-live="polite">{lastResult ? <><span className="result-emoji" aria-hidden="true">{lastResult.emoji}</span><div><span className="eyebrow">Latest result · generation {lastResult.generation}</span><h2>{lastResult.name}</h2><p>{lastResult.description}</p></div><button className="source-chip" onClick={() => setInspectId(lastResult.id)}>{sourceLabel(lastResultSource ?? lastResult.source)} ↗</button></> : <p>Your next discovery will crystallize here.</p>}</div>
       </section> : <section className="workbench panel" aria-labelledby="workbench-heading"><div className="workbench-heading"><div><span className="eyebrow">Spatial laboratory</span><h1 id="workbench-heading">Make a beautiful mess.</h1><p>Drag discoveries together to combine them. Every object is a real button, so touch and keyboard play work too.</p></div><div className="workbench-toolbar"><button disabled={!selectedWorkbench} onClick={duplicateWorkbench}>Duplicate</button><button disabled={!selectedWorkbenchMaterial} onClick={() => selectedWorkbenchMaterial && splitMaterial(selectedWorkbenchMaterial, selectedWorkbench)}>Split</button><button disabled={!selectedWorkbenchMaterial} onClick={() => selectedWorkbenchMaterial && setInspectId(selectedWorkbenchMaterial.id)}>Details</button><button disabled={!selectedWorkbench} onClick={removeWorkbench}>Remove</button></div></div>
         <Workbench items={game.workspace} materials={materialMap} pending={workbenchPending} selectedId={selectedWorkbenchId} onSelect={setSelectedWorkbenchId} onMove={moveWorkbench} onCombine={combineWorkbench} onDropMaterial={placeOnWorkbench} />
       </section>}
