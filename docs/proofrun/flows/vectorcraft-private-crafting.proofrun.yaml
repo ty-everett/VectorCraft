@@ -62,12 +62,12 @@ flow:
         thresholdMs: 1000
     - id: novel-local-ai
       actor: target-user
-      action: Combine Dust and DNA to invoke the local crafting model on desktop Chrome and iPhone Safari.
+      action: Combine a novel pair, such as Dust and DNA, to invoke the local crafting model on desktop Chrome and iPhone Safari.
       expected:
         ui:
           - Model download or working progress is visible and the result is labeled LOCAL AI, not LOCAL FALLBACK.
         domain:
-          - Chrome uses SmolLM2 360M WebGPU; iPhone Safari uses SmolLM2 135M single-threaded WASM.
+          - Supported Chrome uses SmolLM2 360M WebGPU; iPhone Safari uses SmolLM2 135M single-threaded WASM; other browsers select the safe profile their capabilities support.
         telemetry:
           - ai model readiness and craft success are queryable without prompts, inputs, or output.
       timing:
