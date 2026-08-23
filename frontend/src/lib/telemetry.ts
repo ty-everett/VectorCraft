@@ -128,6 +128,28 @@ export function reportError(
   }, ['severity:error'])
 }
 
+export function acquisitionContext(): Context {
+  const params = new URLSearchParams(window.location.search)
+  const campaign: Context = {}
+  for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'ref']) {
+    const value = params.get(key)?.trim()
+    if (value) campaign[key] = value.slice(0, 80)
+  }
+  let referrerClass = 'direct'
+  if (document.referrer) {
+    try {
+      referrerClass = new URL(document.referrer).origin === window.location.origin ? 'internal' : 'external'
+    } catch {
+      referrerClass = 'unknown'
+    }
+  }
+  return {
+    ...campaign,
+    referrerClass,
+    standalone: window.matchMedia('(display-mode: standalone)').matches,
+  }
+}
+
 export async function submitFeedback(input: {
   feedback: string
   email?: string
