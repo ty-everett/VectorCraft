@@ -130,7 +130,14 @@ export function parseGeneratedMaterial(raw: string): GeneratedMaterial | null {
 
   if (!resolvedName) return null
   const name = titleCase(resolvedName).replace(/[^\p{L}\p{N} '&-]/gu, '').trim()
-  if (name.length < 2 || name.length > 36 || boilerplate.test(name) || /^(?:name|item|input|output|answer|result)$/i.test(name)) return null
+  if (
+    name.length < 2
+    || name.length > 36
+    || boilerplate.test(name)
+    || /^(?:name|item|input|output|answer|result)$/i.test(name)
+    || /^(?:the|this|that|it|there|here)\b/i.test(name)
+    || /\b(?:is|are|was|were)\b/i.test(name)
+  ) return null
 
   return {
     name,

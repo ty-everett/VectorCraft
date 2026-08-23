@@ -37,6 +37,7 @@ describe('crafting domain', () => {
     expect(parseGeneratedMaterial('The following is a short description that summarizes the input and output.')).toBeNull()
     expect(parseGeneratedMaterial('NAME | EMOJI | SHORT DESCRIPTION')).toBeNull()
     expect(parseGeneratedMaterial('INPUT | ✨ | Fire + Water')).toBeNull()
+    expect(parseGeneratedMaterial('The Fire Is The | ✨ | Sentence fragment')).toBeNull()
   })
 
   it('creates deterministic offline fallbacks and unique names', () => {
