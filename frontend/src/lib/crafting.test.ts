@@ -30,18 +30,13 @@ describe('crafting domain', () => {
       .toEqual({ name: 'Moon Bridge', emoji: '🌉', description: 'a silver crossing' })
     expect(parseGeneratedMaterial('OUTPUT: sky garden | 🌻 | Flowers carried by the wind.'))
       .toEqual({ name: 'Sky Garden', emoji: '🌻', description: 'Flowers carried by the wind.' })
-    expect(parseGeneratedMaterial('The result is a glowing wind garden that floats above the ground.'))
-      .toEqual({
-        name: 'A Glowing Wind Garden',
-        emoji: '✨',
-        description: 'The result is a glowing wind garden that floats above the ground.',
-      })
   })
 
   it('fails closed on unusable model output', () => {
     expect(parseGeneratedMaterial('I cannot answer that.')).toBeNull()
     expect(parseGeneratedMaterial('The following is a short description that summarizes the input and output.')).toBeNull()
     expect(parseGeneratedMaterial('NAME | EMOJI | SHORT DESCRIPTION')).toBeNull()
+    expect(parseGeneratedMaterial('INPUT | ✨ | Fire + Water')).toBeNull()
   })
 
   it('creates deterministic offline fallbacks and unique names', () => {

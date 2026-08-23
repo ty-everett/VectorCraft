@@ -124,25 +124,13 @@ export function parseGeneratedMaterial(raw: string): GeneratedMaterial | null {
     ?.split('|')
     .map((part) => part.trim())
 
-  const naturalLine = raw
-    .replace(/```(?:json)?|```|<\|[^>]+\|>/gi, '')
-    .split('\n')
-    .map((line) => line.replace(/^(?:OUTPUT|ANSWER|RESULT)\s*:\s*/i, '').trim())
-    .find((line) => /\p{L}{2}/u.test(line) && !/\b(?:cannot|unable|sorry|refuse)\b/i.test(line) && !boilerplate.test(line))
-  const naturalName = naturalLine
-    ?.replace(/^(?:the result is|combine(?:s|d)? into|a combination of)\s+/i, '')
-    .split(/[.!?:;,|]/)[0]
-    .split(/\s+/)
-    .slice(0, 4)
-    .join(' ')
-
-  const resolvedName = rawName ?? pipeParts?.[0] ?? naturalName
+  const resolvedName = rawName ?? pipeParts?.[0]
   const resolvedEmoji = rawEmoji ?? pipeParts?.[1]
-  const resolvedDescription = rawDescription ?? pipeParts?.slice(2).join(' | ') ?? naturalLine
+  const resolvedDescription = rawDescription ?? pipeParts?.slice(2).join(' | ')
 
   if (!resolvedName) return null
   const name = titleCase(resolvedName).replace(/[^\p{L}\p{N} '&-]/gu, '').trim()
-  if (name.length < 2 || name.length > 36 || boilerplate.test(name) || /^(?:name|item|answer|result)$/i.test(name)) return null
+  if (name.length < 2 || name.length > 36 || boilerplate.test(name) || /^(?:name|item|input|output|answer|result)$/i.test(name)) return null
 
   return {
     name,
