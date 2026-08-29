@@ -1,0 +1,122 @@
+apiVersion: proofrun.dev/v1
+kind: Workflow
+metadata:
+  id: vectorcraft-feedback-recovery
+  name: VectorCraft feedback, crash observability, and safe recovery
+  version: 1.0.0
+  description: Any player reporting a problem or recovering from a local-model failure.
+  labels:
+    migration: proofrunVersion-1
+    repository: ty-everett/VectorCraft
+    category: feedback
+target:
+  type: web
+  url: https://vectorcraft.metanet.app
+  environment: production
+matrix:
+  maxCases: 3
+  exclude:
+    - {}
+  include:
+    - agent: openai-computer
+      profile: customer.impatient-newcomer@1.0.0
+      accessibility: standard
+      device: device.chromium-desktop@1.0.0
+      legacyDesktopBrowser: chrome
+      legacyNetworks: mainnet
+    - agent: openai-computer
+      profile: customer.impatient-newcomer@1.0.0
+      accessibility: standard
+      device: device.webkit-mobile@1.0.0
+      legacyMobileBrowser: safari
+      legacyNetworks: mainnet
+    - agent: openai-computer
+      profile: customer.impatient-newcomer@1.0.0
+      accessibility: standard
+      device: device.ios-simulator@1.0.0
+      legacyMobileSimulator: ios-18.5-iphone-16
+      legacyNetworks: mainnet
+capabilities:
+  - browser
+journeys:
+  - id: feedback
+    goal: VectorCraft feedback, crash observability, and safe recovery
+    role: Any player reporting a problem or recovering from a local-model failure.
+    maxActions: 18
+    maxSeconds: 120
+    steps:
+      - id: inspect-privacy
+        instruction: Open Privacy and verify the local-content and bounded-telemetry disclosure.
+        expected: "UI: The notice is readable and dismissible on desktop and iPhone Safari."
+        evidence:
+          - screenshot
+          - trace
+          - metric
+        onFailure: stop
+      - id: submit-feedback
+        instruction: Submit a unique public-safe marker without an email and with diagnostics enabled.
+        expected: "UI: A success toast appears and play state is preserved. Domain: UserCom stores one feedback row under source vectorcraft and surface feedback-form. Telemetry: feedback.opened, feedback.submitted, and feedback.client_acknowledged are queryable."
+        evidence:
+          - screenshot
+          - trace
+          - log
+          - metric
+        onFailure: stop
+      - id: validate-recovery-diagnostics
+        instruction: Inspect bounded error telemetry from a controlled local-model incompatibility and confirm safe fallback behavior.
+        expected: "Domain: Release, browser/runtime profile, safe message, stack asset and coordinates are present; prompts, discoveries, secrets, and raw state are absent. Telemetry: client.worker_error and craft.fallback_succeeded correlate in the same run window."
+        evidence:
+          - screenshot
+          - trace
+          - log
+          - metric
+        onFailure: stop
+assertions:
+  - id: uiappearance-1
+    type: visual
+    severity: fail
+    statement: Feedback, privacy, success, fatal recovery, and fallback states remain legible on the declared matrix.
+  - id: audienceintuition-1
+    type: agent
+    severity: fail
+    statement: Players can understand what diagnostics contain, opt out, submit anonymously, retry, and continue after local-model failure.
+  - id: customertrust-1
+    type: security
+    severity: fail
+    statement: Optional email and diagnostics are explicit; exact recipes use only the separate acknowledged contribution path.
+  - id: flowsuccess-1
+    type: oracle
+    severity: fail
+    statement: Browser acknowledgement, UserCom feedback storage, UserCom signals, and fallback result agree.
+  - id: telemetryobservability-1
+    type: oracle
+    severity: fail
+    statement: Global errors, promise rejections, React crashes, worker errors, local-AI timeouts, funnel events, and feedback outcomes are release-correlated.
+  - id: reliabilityrepeatability-1
+    type: oracle
+    severity: fail
+    statement: Telemetry remains best-effort and never interrupts crafting or feedback recovery.
+  - id: performance-1
+    type: performance
+    severity: fail
+    statement: Feedback opens immediately and UserCom acknowledges within five seconds.
+  - id: required-state-1
+    type: oracle
+    severity: fail
+    statement: The production Feedback and Privacy controls are available without login.
+    tags:
+      - migrated-preflight
+policy:
+  unsafeContent: stop
+  highImpactActions: require-approval
+  allowedHosts:
+    - vectorcraft.metanet.app
+    - usercom.babbage.systems
+  spendLimit: 0
+  warnExitCode: 0
+remediation:
+  mode: manual
+  allowed: true
+  proposalOnly: true
+  requiredApprovers: 1
+uses: []

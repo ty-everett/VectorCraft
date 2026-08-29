@@ -1,0 +1,122 @@
+apiVersion: proofrun.dev/v1
+kind: Workflow
+metadata:
+  id: vectorcraft-private-crafting
+  name: VectorCraft deterministic local-AI crafting, contribution, and semantic search
+  version: 1.0.0
+  description: A first-time player using desktop Chrome or iPhone Safari without an account or wallet.
+  labels:
+    migration: proofrunVersion-1
+    repository: ty-everett/VectorCraft
+    category: core-game
+target:
+  type: web
+  url: https://vectorcraft.metanet.app
+  environment: production
+matrix:
+  maxCases: 3
+  exclude:
+    - {}
+  include:
+    - agent: openai-computer
+      profile: customer.impatient-newcomer@1.0.0
+      accessibility: standard
+      device: device.chromium-desktop@1.0.0
+      legacyDesktopBrowser: chrome
+      legacyNetworks: mainnet
+    - agent: openai-computer
+      profile: customer.impatient-newcomer@1.0.0
+      accessibility: standard
+      device: device.webkit-mobile@1.0.0
+      legacyMobileBrowser: safari
+      legacyNetworks: mainnet
+    - agent: openai-computer
+      profile: customer.impatient-newcomer@1.0.0
+      accessibility: standard
+      device: device.ios-simulator@1.0.0
+      legacyMobileSimulator: ios-18.5-iphone-16
+      legacyNetworks: mainnet
+capabilities:
+  - browser
+journeys:
+  - id: core-game
+    goal: VectorCraft deterministic local-AI crafting, contribution, and semantic search
+    role: A first-time player using desktop Chrome or iPhone Safari without an account or wallet.
+    maxActions: 18
+    maxSeconds: 480
+    steps:
+      - id: corpus-first-value
+        instruction: Combine Air and Earth, then craft Dust.
+        expected: "UI: Dust appears immediately with a CORPUS source label and persists after reload. Telemetry: craft.succeeded is queryable with source corpus and no material names in standard telemetry. Telemetry: recipe.contributed includes the disclosed signed Air + Earth to Dust recipe packet under CC0."
+        evidence:
+          - screenshot
+          - trace
+          - log
+          - metric
+        onFailure: stop
+      - id: novel-local-ai
+        instruction: Combine a novel pair, such as Dust and DNA, to invoke the local crafting model on desktop Chrome and iPhone Safari.
+        expected: "UI: Model download or working progress is visible and the result is labeled LOCAL AI, not LOCAL FALLBACK. Domain: Supported Chrome uses SmolLM2 360M WebGPU; iPhone Safari uses SmolLM2 135M single-threaded WASM; other browsers select the safe profile their capabilities support. Telemetry: ai model readiness and craft success are queryable without prompts, inputs, or output in standard telemetry. Telemetry: recipe.contributed separately records the disclosed signed recipe packet."
+        evidence:
+          - screenshot
+          - trace
+          - log
+          - metric
+        onFailure: stop
+      - id: semantic-search
+        instruction: Search the inventory for a meaning such as biology.
+        expected: "UI: DNA is ranked as a semantic result while the browser remains responsive. Telemetry: search.completed records only result and inventory counts."
+        evidence:
+          - screenshot
+          - trace
+          - log
+          - metric
+        onFailure: stop
+assertions:
+  - id: uiappearance-1
+    type: visual
+    severity: fail
+    statement: Forge, inventory, model state, and result labels remain legible without overlap on desktop and iPhone Safari.
+  - id: audienceintuition-1
+    type: agent
+    severity: fail
+    statement: A first-time player can select two items, distinguish classic/local-AI/fallback results, and understand the initial model download.
+  - id: customertrust-1
+    type: security
+    severity: fail
+    statement: The acknowledgement and privacy notice accurately distinguish local inference/raw responses/state from exact signed recipe contributions and bounded operational telemetry.
+  - id: flowsuccess-1
+    type: oracle
+    severity: fail
+    statement: Classic craft, novel local inference, persistence, and semantic search all complete on the declared matrix.
+  - id: telemetryobservability-1
+    type: oracle
+    severity: fail
+    statement: Release, runtime profile, funnel outcome, bounded errors, and separately disclosed signed recipe packets are queryable.
+  - id: reliabilityrepeatability-1
+    type: oracle
+    severity: fail
+    statement: Reload preserves discoveries, repeated recipes return promptly, and local-model failures recover without hanging.
+  - id: performance-1
+    type: performance
+    severity: fail
+    statement: Corpus crafting responds within one second and uncached local inference completes within six minutes.
+  - id: required-state-1
+    type: oracle
+    severity: fail
+    statement: Production serves the exact candidate release and the iOS 18.5 simulator is available.
+    tags:
+      - migrated-preflight
+policy:
+  unsafeContent: stop
+  highImpactActions: require-approval
+  allowedHosts:
+    - vectorcraft.metanet.app
+  spendLimit: 0
+  warnExitCode: 0
+remediation:
+  mode: manual
+  allowed: true
+  proposalOnly: true
+  requiredApprovers: 1
+uses: []

@@ -1,0 +1,129 @@
+apiVersion: proofrun.dev/v1
+kind: Workflow
+metadata:
+  id: vectorcraft-deterministic-corpus
+  name: VectorCraft deterministic corpus and signed contribution integrity
+  version: 1.0.0
+  description: A first-time player who wants repeatable crafting and transparent contribution behavior.
+  labels:
+    migration: proofrunVersion-1
+    repository: ty-everett/VectorCraft
+    category: corpus-growth
+target:
+  type: web
+  url: https://vectorcraft.metanet.app
+  environment: production
+matrix:
+  maxCases: 3
+  exclude:
+    - {}
+  include:
+    - agent: openai-computer
+      profile: customer.impatient-newcomer@1.0.0
+      accessibility: standard
+      device: device.chromium-desktop@1.0.0
+      legacyDesktopBrowser: chrome
+      legacyNetworks: mainnet
+    - agent: openai-computer
+      profile: customer.impatient-newcomer@1.0.0
+      accessibility: standard
+      device: device.webkit-mobile@1.0.0
+      legacyMobileBrowser: safari
+      legacyNetworks: mainnet
+    - agent: openai-computer
+      profile: customer.impatient-newcomer@1.0.0
+      accessibility: standard
+      device: device.ios-simulator@1.0.0
+      legacyMobileSimulator: ios-18.5-iphone-16
+      legacyNetworks: mainnet
+capabilities:
+  - browser
+journeys:
+  - id: corpus-growth
+    goal: VectorCraft deterministic corpus and signed contribution integrity
+    role: A first-time player who wants repeatable crafting and transparent contribution behavior.
+    maxActions: 24
+    maxSeconds: 180
+    steps:
+      - id: acknowledge-exact-contribution
+        instruction: Read the first-run recipe contribution disclosure and enter the workshop.
+        expected: "UI: The exact recipe fields, local exclusions, anonymous signature, CC0 purpose, and Privacy reference are understandable on desktop and iPhone Safari."
+        evidence:
+          - screenshot
+          - trace
+          - metric
+        onFailure: stop
+      - id: repeat-order-independent-recipe
+        instruction: Craft Earth + Earth and recall it; verify the built result is Mountain each time and survives reload.
+        expected: "UI: The first result and every recall resolve to the same name, emoji, description, and stable recipe identity for the fixed engine/model profile. Domain: Greedy local generation, deterministic fallback, corpus lookup, recipe keys, and tie-breaking contain no sampling or random variation."
+        evidence:
+          - screenshot
+          - trace
+          - metric
+        onFailure: stop
+      - id: verify-signed-contribution
+        instruction: Query UserCom for the correlated recipe.contributed packet and verify its P-256 signature with the checked-in staging tool.
+        expected: "Domain: The packet contains only the disclosed recipe/provenance fields and its signature verifies against the included public key. Telemetry: recipe.contributed is tagged by outcome and source, and standard craft telemetry remains content-redacted."
+        evidence:
+          - screenshot
+          - trace
+          - log
+          - metric
+        onFailure: stop
+      - id: semantic-collapse-policy
+        instruction: Inspect the candidate-to-inventory MiniLM comparison and execute the semantic-collapse regression tests.
+        expected: "Domain: Exact names collapse at score 1; normalized embedding candidates collapse at or above 0.86 with a stable id tie-break; lower scores remain distinct."
+        evidence:
+          - screenshot
+          - trace
+          - metric
+        onFailure: stop
+assertions:
+  - id: uiappearance-1
+    type: visual
+    severity: fail
+    statement: Contribution, discovery, recall, and merge states remain legible on desktop and iPhone Safari.
+  - id: audienceintuition-1
+    type: agent
+    severity: fail
+    statement: A player understands that inference stays local while final recipes improve a reviewed shared corpus.
+  - id: customertrust-1
+    type: security
+    severity: fail
+    statement: Contribution is explicit before play and the exact packet matches the Privacy notice.
+  - id: flowsuccess-1
+    type: oracle
+    severity: fail
+    statement: Corpus output, recall, persistence, signature verification, queue delivery, and semantic policy agree.
+  - id: telemetryobservability-1
+    type: oracle
+    severity: fail
+    statement: Operators can identify what was crafted from recipe.contributed without exposing raw model responses or unrelated state.
+  - id: reliabilityrepeatability-1
+    type: oracle
+    severity: fail
+    statement: Input order, repeat count, runtime retry, and connectivity do not create alternate recipes for the same engine/version pair.
+  - id: performance-1
+    type: performance
+    severity: fail
+    statement: Corpus recall is immediate and contribution delivery never blocks play.
+  - id: required-state-1
+    type: oracle
+    severity: fail
+    statement: Production serves the candidate release and UserCom is healthy.
+    tags:
+      - migrated-preflight
+policy:
+  unsafeContent: stop
+  highImpactActions: require-approval
+  allowedHosts:
+    - vectorcraft.metanet.app
+    - usercom.babbage.systems
+  spendLimit: 0
+  warnExitCode: 0
+remediation:
+  mode: manual
+  allowed: true
+  proposalOnly: true
+  requiredApprovers: 1
+uses: []
